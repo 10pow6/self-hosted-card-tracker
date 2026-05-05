@@ -1,0 +1,154 @@
+import { useEffect, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { LayoutGrid, MapPin, Sparkles } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { PageHeader } from '@/components/PageHeader';
+import { EmptyState } from '@/components/EmptyState';
+import { getCard, listPlacementsForCard } from '@/api/cardsApi';
+import type { CoreCard, Placement } from '@/api/types';
+
+export function CardDetail() {
+  const { id = '' } = useParams<{ id: string }>();
+  const [card, setCard] = useState<CoreCard | null | undefined>(undefined);
+  const [placements, setPlacements] = useState<Placement[]>([]);
+
+  useEffect(() => {
+    getCard(id).then((c) => {
+      setCard(c);
+      if (c) listPlacementsForCard(c.id).then(setPlacements);
+    });
+  }, [id]);
+
+  if (card === undefined) {
+    return (
+      <>
+        <PageHeader title={<Skeleton className="h-8 w-64" />} back={{ to: '/cards', label: 'Cards' }} />
+      </>
+    );
+  }
+  if (card === null) {
+    return (
+      <>
+        <PageHeader title="Card not found" back={{ to: '/cards', label: 'Cards' }} />
+        <div className="px-4 md:px-8">
+          <EmptyState icon={LayoutGrid} title="No card with that id" />
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <PageHeader
+        title={card.name ?? 'Unknown card'}
+        description={
+          card.set
+            ? `${card.set}${card.number ? ` · ${card.number}` : ''}${card.year ? ` · ${card.year}` : ''}`
+            : 'No metadata yet — enrich it below.'
+        }
+        back={{ to: '/cards', label: 'Cards' }}
+      />
+      <section className="px-4 md:px-8 pb-12 grid gap-6 lg:grid-cols-[300px_1fr] items-start">
+        <div className="space-y-3">
+          <div className="aspect-card rounded-2xl overflow-hidden border border-border bg-card shadow-xl shadow-primary/5">
+            <img
+              src={card.representative_crop_url}
+              alt={card.name ?? 'Unknown card'}
+              className="size-full object-cover"
+            />
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge variant="secondary">{card.type}</Badge>
+            {card.needs_metadata && (
+              <Badge className="bg-[var(--card-needs-review)]/20 text-[var(--card-needs-review)]">
+                needs metadata
+              </Badge>
+            )}
+            <span className="text-xs text-muted-foreground">
+              {card.embedder_name} · {card.embedder_version}
+            </span>
+          </div>
+        </div>
+
+        <div className="space-y-6 min-w-0">
+          <Card>
+            <CardContent className="p-5 space-y-4">
+              <div className="flex items-center justify-between gap-2">
+                <div className="text-sm font-semibold">Metadata</div>
+                <Button variant="outline" size="sm">
+                  <Sparkles className="size-3.5" />
+                  Enrich via agent
+                </Button>
+              </div>
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                <Field label="Name" value={card.name} />
+                <Field label="Set" value={card.set} />
+                <Field label="Number" value={card.number} />
+                <Field label="Year" value={card.year?.toString() ?? null} />
+                <Field label="Type" value={card.type} />
+                <Field label="Notes" value={card.notes} />
+              </dl>
+              <p className="text-xs text-muted-foreground">
+                Inline editing & agent enrichment land in a future iteration. For now, metadata is
+                manual.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <div className="text-sm font-semibold">Placements</div>
+                  <div className="text-xs text-muted-foreground">
+                    Physical instances of this card across your binders.
+                  </div>
+                </div>
+                <Badge variant="secondary">{placements.length}</Badge>
+              </div>
+              {placements.length === 0 ? (
+                <div className="text-sm text-muted-foreground">No placements yet.</div>
+              ) : (
+                <ul className="divide-y divide-border">
+                  {placements.map((p) => (
+                    <li key={p.id} className="py-3 flex items-center gap-3">
+                      <div className="aspect-card w-12 rounded-md overflow-hidden bg-muted shrink-0">
+                        {p.crop_url && (
+                          <img src={p.crop_url} alt="" className="size-full object-cover" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{p.binder_name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Page {p.page_number} · slot {p.slot_index + 1}
+                        </div>
+                      </div>
+                      <Button asChild variant="ghost" size="sm">
+                        <Link to={`/binders/${p.binder_id}/pages/${p.page_number}`}>
+                          <MapPin className="size-3.5" />
+                          View
+                        </Link>
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+    </>
+  );
+}
+
+function Field({ label, value }: { label: string; value: string | null }) {
+  return (
+    <>
+      <dt className="text-xs uppercase tracking-wider text-muted-foreground">{label}</dt>
+      <dd className="text-sm">{value ?? <span className="text-muted-foreground italic">—</span>}</dd>
+    </>
+  );
+}

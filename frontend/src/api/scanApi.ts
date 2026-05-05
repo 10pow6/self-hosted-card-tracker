@@ -1,8 +1,9 @@
 import type { CommitResponse, PreviewResponse, RawPreviewResponse, Slot } from './types';
 
-export async function previewScan(file: File): Promise<PreviewResponse> {
+export async function previewScan(file: File, layout?: string): Promise<PreviewResponse> {
   const fd = new FormData();
   fd.append('image', file);
+  if (layout) fd.append('layout', layout);
   const res = await fetch('/api/scans/preview', { method: 'POST', body: fd });
   if (!res.ok) {
     const detail = await res.text();
@@ -18,10 +19,17 @@ export async function previewScan(file: File): Promise<PreviewResponse> {
   return { ...raw, slots };
 }
 
-export async function commitScan(scanId: string, slots: Slot[]): Promise<CommitResponse> {
+export async function commitScan(args: {
+  scanId: string;
+  binderId: string;
+  pageNumber: number;
+  slots: Slot[];
+}): Promise<CommitResponse> {
   const body = {
-    scan_id: scanId,
-    slots: slots.map((s) => ({
+    scan_id: args.scanId,
+    binder_id: args.binderId,
+    page_number: args.pageNumber,
+    slots: args.slots.map((s) => ({
       slot_index: s.slot_index,
       disabled: s.disabled,
       polygon: s.polygon.map((p) => [p.x, p.y]),

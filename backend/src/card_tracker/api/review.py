@@ -1,5 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+
+from card_tracker.services import review as review_svc
 
 router = APIRouter(prefix="/review", tags=["review"])
 
@@ -10,15 +12,40 @@ class ResolveMatch(BaseModel):
 
 @router.get("/queue")
 def get_queue() -> list[dict]:
-    """Pending placements with top-N candidate CORE cards."""
-    raise NotImplementedError
+    return review_svc.list_queue()
 
 
 @router.post("/{placement_id}/match")
 def confirm_match(placement_id: str, payload: ResolveMatch) -> dict:
-    raise NotImplementedError
+    try:
+        review_svc.confirm_match(placement_id, payload.core_card_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return {"placement_id": placement_id, "status": "user_confirmed"}
 
 
 @router.post("/{placement_id}/new")
 def confirm_new(placement_id: str) -> dict:
-    raise NotImplementedError
+    try:
+        core_id = review_svc.confirm_new(placement_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return {"placement_id": placement_id, "core_card_id": core_id, "status": "new_card"}
+
+
+@router.post("/{placement_id}/defer")
+def defer(placement_id: str) -> dict:
+    try:
+        review_svc.defer(placement_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return {"placement_id": placement_id, "deferred": True}
+
+
+@router.post("/{placement_id}/undefer")
+def undefer(placement_id: str) -> dict:
+    try:
+        review_svc.undefer(placement_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return {"placement_id": placement_id, "deferred": False}

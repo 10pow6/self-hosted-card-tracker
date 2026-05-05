@@ -135,12 +135,17 @@ def _cell_crop_resized(cell_bgr: np.ndarray) -> np.ndarray:
 # Public API
 
 
-def detect_slot_polygons(img: np.ndarray) -> tuple[np.ndarray, dict]:
-    """Detect bbox + 9 slot polygons in image-pixel coordinates (no warping).
+def detect_slot_polygons(
+    img: np.ndarray,
+    rows: int = 3,
+    cols: int = 3,
+) -> tuple[np.ndarray, dict]:
+    """Detect bbox + RxC slot polygons in image-pixel coordinates (no warping).
 
     Returns ``(resized_image, payload)``. Callers serve the resized image so
     polygon coordinates align 1:1 with what the user sees in the browser.
-    Each slot polygon is 4 (x, y) points in row-major TL→TR→BR→BL order:
+    Slots are emitted in row-major order with `slot_index = row * cols + col`.
+    Each polygon is 4 (x, y) points in TL→TR→BR→BL order:
       - refined cells: per-card minAreaRect quad detected by saturation+hull
       - unrefined cells: the axis-aligned cell rectangle (so the user has a
         sensible starting box to drag)
@@ -154,7 +159,9 @@ def detect_slot_polygons(img: np.ndarray) -> tuple[np.ndarray, dict]:
     payload = {
         "image_size": [int(w), int(h)],
         "bbox": [int(v) for v in bbox],
-        "slots": _detect_cell_polygons(img, bbox),
+        "rows": int(rows),
+        "cols": int(cols),
+        "slots": _detect_cell_polygons(img, bbox, rows=rows, cols=cols),
     }
     return img, payload
 
@@ -191,13 +198,18 @@ def _default_card_polygon(cx: int, cy: int, cell_w: int, cell_h: int) -> np.ndar
     )
 
 
-def _detect_cell_polygons(img: np.ndarray, bbox: tuple[int, int, int, int]) -> list[dict]:
+def _detect_cell_polygons(
+    img: np.ndarray,
+    bbox: tuple[int, int, int, int],
+    rows: int = 3,
+    cols: int = 3,
+) -> list[dict]:
     x, y, pw, ph = bbox
-    cell_w = pw // 3
-    cell_h = ph // 3
+    cell_w = pw // cols
+    cell_h = ph // rows
     out: list[dict] = []
-    for row in range(3):
-        for col in range(3):
+    for row in range(rows):
+        for col in range(cols):
             cx = x + col * cell_w
             cy = y + row * cell_h
             cell = img[cy : cy + cell_h, cx : cx + cell_w]
@@ -210,7 +222,7 @@ def _detect_cell_polygons(img: np.ndarray, bbox: tuple[int, int, int, int]) -> l
                 refined = False
             out.append(
                 {
-                    "slot_index": row * 3 + col,
+                    "slot_index": row * cols + col,
                     "polygon": polygon.tolist(),
                     "refined": refined,
                 }

@@ -1,11 +1,13 @@
 import { useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import type { Point, Slot } from './types';
+import type { Point, Slot } from '@/api/types';
 
 type Props = {
   imageUrl: string;
   imageSize: [number, number];
   bbox: [number, number, number, number];
+  rows: number;
+  cols: number;
   slots: Slot[];
   onChange: (slots: Slot[]) => void;
 };
@@ -61,7 +63,7 @@ function defaultPolygon(rect: { x: number; y: number; w: number; h: number }): S
   ];
 }
 
-export function PolygonEditor({ imageUrl, imageSize, bbox, slots, onChange }: Props) {
+export function PolygonEditor({ imageUrl, imageSize, bbox, rows, cols, slots, onChange }: Props) {
   const [w, h] = imageSize;
   const svgRef = useRef<SVGSVGElement | null>(null);
   const dragRef = useRef<Drag>(null);
@@ -71,9 +73,9 @@ export function PolygonEditor({ imageUrl, imageSize, bbox, slots, onChange }: Pr
 
   const cellRect = (slotIdx: number) => {
     const [bx, by, bw, bh] = bbox;
-    const col = slotIdx % 3;
-    const row = Math.floor(slotIdx / 3);
-    return { x: bx + col * (bw / 3), y: by + row * (bh / 3), w: bw / 3, h: bh / 3 };
+    const col = slotIdx % cols;
+    const row = Math.floor(slotIdx / cols);
+    return { x: bx + col * (bw / cols), y: by + row * (bh / rows), w: bw / cols, h: bh / rows };
   };
 
   const cellCenter = (slotIdx: number): Point => {
@@ -261,7 +263,7 @@ export function PolygonEditor({ imageUrl, imageSize, bbox, slots, onChange }: Pr
   const addR = ADD_R / zoomFactor;
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div className="relative overflow-hidden rounded-xl border border-border bg-card">
       <svg
         ref={svgRef}
         viewBox={vb.join(' ')}
@@ -270,13 +272,7 @@ export function PolygonEditor({ imageUrl, imageSize, bbox, slots, onChange }: Pr
         onPointerMove={onSvgPointerMove}
         onPointerUp={onSvgPointerUp}
         onPointerCancel={onSvgPointerUp}
-        style={{
-          width: '100%',
-          maxHeight: '80vh',
-          touchAction: 'none',
-          display: 'block',
-          userSelect: 'none',
-        }}
+        className="block w-full max-h-[75vh] select-none touch-none"
       >
         <image href={imageUrl} width={w} height={h} />
         {slots.map((s, slotIdx) => {
@@ -310,7 +306,7 @@ export function PolygonEditor({ imageUrl, imageSize, bbox, slots, onChange }: Pr
               </g>
             );
           }
-          const strokeColor = s.refined ? '#22d3ee' : '#f59e0b';
+          const strokeColor = s.refined ? 'var(--card-refined)' : 'var(--card-needs-review)';
           // Place × button slightly INWARD from corner 1 (top-right), toward centroid
           const tr = s.polygon[1];
           const cxAvg = (s.polygon[0].x + s.polygon[1].x + s.polygon[2].x + s.polygon[3].x) / 4;
@@ -369,33 +365,24 @@ export function PolygonEditor({ imageUrl, imageSize, bbox, slots, onChange }: Pr
           );
         })}
       </svg>
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 8,
-          right: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 4,
-        }}
-      >
+      <div className="absolute bottom-2 right-2 flex flex-col gap-1">
         <button
           onClick={() => zoomBy(ZOOM_STEP)}
-          style={{ width: 44, height: 44, fontSize: 20, fontWeight: 'bold' }}
+          className="size-11 rounded-md bg-card/90 backdrop-blur border border-border text-foreground text-lg font-bold hover:bg-muted"
           aria-label="Zoom in"
         >
           +
         </button>
         <button
           onClick={() => zoomBy(1 / ZOOM_STEP)}
-          style={{ width: 44, height: 44, fontSize: 20, fontWeight: 'bold' }}
+          className="size-11 rounded-md bg-card/90 backdrop-blur border border-border text-foreground text-lg font-bold hover:bg-muted"
           aria-label="Zoom out"
         >
           −
         </button>
         <button
           onClick={resetZoom}
-          style={{ width: 44, height: 44, fontSize: 12 }}
+          className="size-11 rounded-md bg-card/90 backdrop-blur border border-border text-foreground text-xs hover:bg-muted"
           aria-label="Reset zoom"
         >
           fit

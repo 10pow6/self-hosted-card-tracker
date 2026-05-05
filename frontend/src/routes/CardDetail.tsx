@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { LayoutGrid, MapPin, Sparkles } from 'lucide-react';
+import { GitMerge, LayoutGrid, MapPin, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
+import { MergeCardDialog } from '@/components/MergeCardDialog';
 import { getCard, listPlacementsForCard } from '@/api/cardsApi';
 import type { CoreCard, Placement } from '@/api/types';
 
@@ -14,13 +15,18 @@ export function CardDetail() {
   const { id = '' } = useParams<{ id: string }>();
   const [card, setCard] = useState<CoreCard | null | undefined>(undefined);
   const [placements, setPlacements] = useState<Placement[]>([]);
+  const [mergeOpen, setMergeOpen] = useState(false);
 
-  useEffect(() => {
+  const refresh = useCallback(() => {
     getCard(id).then((c) => {
       setCard(c);
       if (c) listPlacementsForCard(c.id).then(setPlacements);
     });
   }, [id]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   if (card === undefined) {
     return (
@@ -76,12 +82,18 @@ export function CardDetail() {
         <div className="space-y-6 min-w-0">
           <Card>
             <CardContent className="p-5 space-y-4">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="text-sm font-semibold">Metadata</div>
-                <Button variant="outline" size="sm">
-                  <Sparkles className="size-3.5" />
-                  Enrich via agent
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setMergeOpen(true)}>
+                    <GitMerge className="size-3.5" />
+                    Merge duplicates
+                  </Button>
+                  <Button variant="outline" size="sm">
+                    <Sparkles className="size-3.5" />
+                    Enrich via agent
+                  </Button>
+                </div>
               </div>
               <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
                 <Field label="Name" value={card.name} />
@@ -140,6 +152,13 @@ export function CardDetail() {
           </Card>
         </div>
       </section>
+
+      <MergeCardDialog
+        target={card}
+        open={mergeOpen}
+        onOpenChange={setMergeOpen}
+        onMerged={refresh}
+      />
     </>
   );
 }

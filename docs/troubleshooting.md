@@ -30,6 +30,24 @@ Failure modes that have actually been hit. Add new entries here when you find a 
 
 **Fix**: just wait. Subsequent commits embed in ~50 ms per crop on CPU. Pre-warm by running an embed manually if you want.
 
+## `AutoImageProcessor requires the Torchvision library`
+
+**Symptom**: `POST /api/scans/commit` returns 500. Backend log shows `ImportError: AutoImageProcessor requires the Torchvision library...` from inside `embeddings/dinov2.py`.
+
+**Cause**: older versions of `embeddings/dinov2.py` used `transformers.AutoImageProcessor`, which pulls `torchvision` as a required backend.
+
+**Fix (already applied)**: the embedder no longer uses `AutoImageProcessor`. Preprocessing (resize → center crop → ImageNet normalize → CHW) is matched inline with cv2 + numpy in `DinoV2SmallEmbedder._preprocess`. If you still hit this error, you're running stale code — restart uvicorn so the `--reload` watcher picks up the new module.
+
+## iOS Safari reloads the scan page after taking a photo
+
+**Symptom**: on iPhone, you tap "Capture page N", take the photo, see the polygon editor flash for a moment, then end up back on Home or the binder picker. Backend logs show `POST /api/scans/preview 200` and `GET /data/scans/<id>.jpg 200` followed by `/api/dashboard/stats` (or `/api/binders`), which means the upload succeeded but the page navigated away.
+
+**Cause**: iOS Safari is allowed to evict tabs containing an `<input type="file">` while the camera is open, and it reloads the tab when the user returns. React state is wiped. The scan succeeded server-side but the new page instance has no memory of it.
+
+**Mitigation in code**: [`routes/Scan.tsx`](../frontend/src/routes/Scan.tsx) persists the in-flight scan (preview response, slots, page number, savedPages, committed result) to `sessionStorage` under `card_tracker_scan_state_v1`. After Safari reloads `/scan?binder=<id>`, the binder hydration effect reads sessionStorage and restores you back onto the polygon editor or success card you were on. The persisted state is keyed by `binderId` and cleared on **Switch binder** and **Done**.
+
+**If a user still loses progress**: the most likely cause is that they reloaded the `/scan` page without the `?binder=<id>` query param (e.g. via the nav tab). Restoration only triggers when the URL identifies the binder. Land back on the binder via Binders → Binder X → Scan a page.
+
 ## Detection misses cards on dense layouts (4×4 and up)
 
 **Symptom**: 4×4 binder scans show many `refined: false` slots; the user has to drag every box manually.

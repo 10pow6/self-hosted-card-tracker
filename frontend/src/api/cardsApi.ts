@@ -30,3 +30,18 @@ export async function listPlacementsForCard(coreCardId: string): Promise<Placeme
   if (!res.ok) throw new Error(`listPlacementsForCard → ${res.status}: ${await res.text()}`);
   return (await res.json()) as Placement[];
 }
+
+export type MergeResult = {
+  target: CoreCard;
+  moved_placements: number;
+};
+
+export async function mergeCards(sourceId: string, targetId: string): Promise<MergeResult> {
+  const res = await fetch(`/api/cards/${encodeURIComponent(sourceId)}/merge`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ target_id: targetId }),
+  });
+  if (!res.ok) throw new Error(`mergeCards → ${res.status}: ${await res.text()}`);
+  return (await res.json()) as MergeResult;
+}

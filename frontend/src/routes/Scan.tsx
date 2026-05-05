@@ -36,6 +36,50 @@ import { cn } from '@/lib/utils';
 
 type SavedPage = { pageNumber: number; cropCount: number; firstCropUrl: string | null };
 
+// iOS Safari sometimes evicts pages with `<input type="file">` from memory while
+// the camera is open. When the user comes back, Safari reloads the tab and React
+// state is gone — even though the upload may have already succeeded server-side.
+// Persist the in-flight scan to sessionStorage so the user lands back on the
+// polygon editor on /scan?binder=<id> after the reload.
+const SCAN_STATE_KEY = 'card_tracker_scan_state_v1';
+
+type PersistedScanState = {
+  binderId: string;
+  pageNumber: number;
+  savedPages: SavedPage[];
+  preview: PreviewResponse | null;
+  slots: Slot[];
+  committed: CommitResponse | null;
+};
+
+function loadScanState(binderId: string): PersistedScanState | null {
+  try {
+    const raw = sessionStorage.getItem(SCAN_STATE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedScanState;
+    if (parsed.binderId !== binderId) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function saveScanState(state: PersistedScanState): void {
+  try {
+    sessionStorage.setItem(SCAN_STATE_KEY, JSON.stringify(state));
+  } catch {
+    // Quota exceeded or storage unavailable — silently no-op.
+  }
+}
+
+function clearScanState(): void {
+  try {
+    sessionStorage.removeItem(SCAN_STATE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 export function Scan() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -63,18 +107,47 @@ export function Scan() {
     listBinders().then(setAllBinders);
   }, []);
 
-  // If URL specifies a binder, hydrate it.
+  // If URL specifies a binder, hydrate it. On hydration we also check
+  // sessionStorage for an in-flight scan (see SCAN_STATE_KEY comment) and
+  // restore preview/slots/pageNumber/savedPages so an iOS-Safari reload
+  // doesn't lose work.
   useEffect(() => {
     if (binderIdParam && (!binder || binder.id !== binderIdParam)) {
       getBinder(binderIdParam).then((b) => {
-        if (b) {
-          setBinder(b);
+        if (!b) return;
+        setBinder(b);
+        const saved = loadScanState(b.id);
+        if (saved) {
+          setPageNumber(saved.pageNumber);
+          setSavedPages(saved.savedPages);
+          setPreview(saved.preview);
+          setSlots(saved.slots);
+          setCommitted(saved.committed);
+        } else {
           setPageNumber(b.page_count + 1);
           setSavedPages([]);
         }
       });
     }
   }, [binderIdParam, binder]);
+
+  // Persist scan state to sessionStorage whenever the meaningful slice changes.
+  useEffect(() => {
+    if (!binder) return;
+    if (!preview && !committed && savedPages.length === 0) {
+      // Nothing worth persisting yet (still on the capture step of the first page).
+      clearScanState();
+      return;
+    }
+    saveScanState({
+      binderId: binder.id,
+      pageNumber,
+      savedPages,
+      preview,
+      slots,
+      committed,
+    });
+  }, [binder, pageNumber, savedPages, preview, slots, committed]);
 
   const selectBinder = (b: Binder) => {
     setBinder(b);
@@ -91,6 +164,7 @@ export function Scan() {
     setError(null);
     setSavedPages([]);
     setSearchParams({}, { replace: true });
+    clearScanState();
   };
 
   const onCreate = async () => {
@@ -168,6 +242,7 @@ export function Scan() {
   };
 
   const finishSession = () => {
+    clearScanState();
     if (binder) navigate(`/binders/${binder.id}`);
     else navigate('/');
   };

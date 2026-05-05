@@ -98,8 +98,15 @@ def ingest_page(
             crop_rgb = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2RGB)
             embedding = embedder.embed(crop_rgb)
             candidates = match.find_candidates(conn, embedding, top_k=3)
-            top_sim = candidates[0].similarity if candidates else 0.0
-            status = match.classify(top_sim) if candidates else "new_card"
+            # Bootstrap: empty CORE → seed with a new row. Otherwise classify(...)
+            # only returns 'auto_matched' or 'pending'; new CORE rows after the
+            # initial seed must come from explicit user action in the review queue.
+            if not candidates:
+                top_sim = 0.0
+                status = "new_card"
+            else:
+                top_sim = candidates[0].similarity
+                status = match.classify(top_sim)
             processed.append(
                 _ProcessedSlot(
                     slot_index=idx,

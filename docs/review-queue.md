@@ -8,11 +8,13 @@ Where placements with ambiguous matches go for a human yes/no.
 
 | State | Meaning | `core_card_id` | `crop`/`embedding` |
 |---|---|---|---|
-| `pending` | Top similarity in `[review_threshold, match_threshold)`. Awaits review. | NULL | set |
+| `pending` | Top similarity below `match_threshold`. Awaits review. | NULL | set |
 | `auto_matched` | Top similarity ≥ `match_threshold` at ingest time. Linked automatically. | set | set |
 | `user_confirmed` | User picked a candidate from the queue. | set | set |
-| `new_card` | No close candidate (top sim `< review_threshold`) **or** user promoted from queue. A new `core_card` row was created from this placement. | set | set |
+| `new_card` | Either: (a) bootstrap — CORE was empty when this placement landed, OR (b) user promoted from queue via **Add as new card**. A new `core_card` row was created from this placement. | set | set |
 | `empty` | User marked the slot deliberately empty before commit. | NULL | NULL |
+
+**Note on `new_card`**: similarity alone never creates new CORE rows after the first scan. Anything below the auto-match threshold goes to the queue. If the user finds out later that a queue resolution created a duplicate (via clicking "Add as new card" on what was actually a known card), see [data-model.md → Merging duplicates](data-model.md#merging-duplicates).
 
 `deferred_at` is orthogonal: NULL = active, ISO timestamp = deferred. Only `pending` placements can be deferred.
 

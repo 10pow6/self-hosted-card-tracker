@@ -32,6 +32,7 @@ All bodies are JSON unless noted. All `*_at` timestamps are ISO 8601 UTC (`YYYY-
 | GET | `/api/cards` | `?type=&needs_metadata=&q=` | `CoreCard[]` (full filtered list — pagination is client-side). |
 | GET | `/api/cards/{card_id}` | — | `CoreCard` or 404. |
 | GET | `/api/cards/{card_id}/placements` | — | `Placement[]`. |
+| POST | `/api/cards/{source_id}/merge` | `{target_id}` | `{target: CoreCard, moved_placements}`. Repoints all placements of `source_id` to `target_id`, then deletes the source. 400 on self-merge or unknown id. |
 
 ## Scans
 

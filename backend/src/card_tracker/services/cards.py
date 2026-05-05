@@ -5,7 +5,7 @@ import sqlite3
 from contextlib import closing
 from typing import Optional
 
-from card_tracker.db.engine import connect
+from card_tracker.db.engine import connect, transaction
 from card_tracker.services.paths import to_url
 
 
@@ -69,6 +69,46 @@ def get_card(card_id: str) -> Optional[dict]:
     with closing(connect()) as conn:
         row = conn.execute("SELECT * FROM core_card WHERE id = ?", (card_id,)).fetchone()
         return _card_dict(conn, row) if row else None
+
+
+class CardMergeError(ValueError):
+    """Recoverable error during card merge (unknown id, self-merge, etc.)."""
+
+
+def merge_cards(source_id: str, target_id: str) -> dict:
+    """Merge `source_id` into `target_id`.
+
+    All placements that pointed at `source_id` get repointed to `target_id`,
+    then the source CORE row is deleted. Crops on disk are NOT touched —
+    placements still own their own crop files and continue to reference them.
+
+    Raises `CardMergeError` for invalid input (unknown id, self-merge).
+    Returns the updated target card dict + count of repointed placements.
+    """
+    if source_id == target_id:
+        raise CardMergeError("Cannot merge a card into itself.")
+    with transaction() as conn:
+        rows = {
+            r["id"]
+            for r in conn.execute(
+                "SELECT id FROM core_card WHERE id IN (?, ?)",
+                (source_id, target_id),
+            ).fetchall()
+        }
+        if source_id not in rows:
+            raise CardMergeError(f"Source card not found: {source_id}")
+        if target_id not in rows:
+            raise CardMergeError(f"Target card not found: {target_id}")
+        moved = conn.execute(
+            "UPDATE placement SET core_card_id = ? WHERE core_card_id = ?",
+            (target_id, source_id),
+        ).rowcount
+        conn.execute("DELETE FROM core_card WHERE id = ?", (source_id,))
+    target = get_card(target_id)
+    if target is None:
+        # Shouldn't happen — we just verified target existed inside the txn.
+        raise CardMergeError(f"Target card vanished after merge: {target_id}")
+    return {"target": target, "moved_placements": int(moved)}
 
 
 def list_placements_for_card(card_id: str) -> list[dict]:

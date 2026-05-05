@@ -59,6 +59,27 @@ The most-touched table. One row per slot in the binder's grid (including deliber
 - **Each placement keeps its embedding.** When a card is moved between binders, its placement is deleted; the CORE row is untouched. The embedding-on-placement also lets the review queue recompute top-N candidates without re-embedding.
 - **The CORE row's `representative_crop_path`** is the placement crop that was first promoted to that core_card. It can be replaced manually later (not yet implemented).
 - **Different embedder versions never compare.** [`services/match.py`](../backend/src/card_tracker/services/match.py) filters core_cards by `embedder_name + embedder_version`; mixed-model collections will produce empty candidate lists for placements embedded under a different model.
+- **CORE rows are only created two ways:** (a) bootstrap when the table is empty during ingest, or (b) explicit user action via **Add as new card** in the review queue. Similarity-alone auto-creation was removed because it produced silent dupes.
+
+## Merging duplicates
+
+If two `core_card` rows turn out to represent the same physical card identity, merge them with `POST /api/cards/{source_id}/merge` (body: `{target_id}`). The endpoint runs in one transaction:
+
+1. `UPDATE placement SET core_card_id = <target> WHERE core_card_id = <source>` — every placement that pointed at the source now points at the target.
+2. `DELETE FROM core_card WHERE id = <source>` — the source row is removed.
+
+Crop files on disk are **not** touched: each placement still owns its own `crop_image_path`, and the target CORE keeps whatever `representative_crop_path` it had. Only the source's CORE row goes away.
+
+### UI flow — "Merge duplicates"
+
+The frontend exposes this on the CardDetail page as a **Merge duplicates** button. The dialog inverts the API direction for ergonomics:
+
+- **Target** is the card whose CardDetail you're on (the "winner").
+- **Sources** are picked from a typeahead-searchable, multi-select list of every other CORE card.
+- A hover preview pane (desktop) shows the card under the cursor at large size with metadata.
+- Confirming runs the merges sequentially with a progress indicator. The target page refreshes in place when complete (placement count grows, no navigation).
+
+After a merge, future similarity searches benefit because the target now has more confirmed photos contributing to its match score (see [embeddings.md](embeddings.md)).
 
 ## Diagram
 

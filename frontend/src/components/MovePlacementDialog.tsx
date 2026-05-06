@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Check, Search, X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -10,50 +10,53 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { listCards, mergeCards } from '@/api/cardsApi';
-import type { CoreCard } from '@/api/types';
+import { listCards } from '@/api/cardsApi';
+import { matchPlacement } from '@/api/placementApi';
+import type { CoreCard, Placement } from '@/api/types';
 import { cn } from '@/lib/utils';
 
 type Props = {
-  /** The "winning" card. Sources picked from the list will fold into this. */
-  target: CoreCard;
+  placement: Placement;
+  /** The placement's currently-linked core card, if any. Excluded from results. */
+  currentCardId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Called after all merges complete so the parent can refresh state. */
-  onMerged: () => void;
+  onMoved: () => void;
 };
 
 const SEARCH_DEBOUNCE_MS = 200;
 
-export function MergeCardDialog({ target, open, onOpenChange, onMerged }: Props) {
+export function MovePlacementDialog({
+  placement,
+  currentCardId,
+  open,
+  onOpenChange,
+  onMoved,
+}: Props) {
   const [q, setQ] = useState('');
   const [results, setResults] = useState<CoreCard[] | null>(null);
-  const [selected, setSelected] = useState<Map<string, CoreCard>>(new Map());
+  const [selected, setSelected] = useState<CoreCard | null>(null);
   const [hovered, setHovered] = useState<CoreCard | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Reset state every time the dialog opens.
   useEffect(() => {
     if (!open) return;
     setQ('');
     setResults(null);
-    setSelected(new Map());
+    setSelected(null);
     setHovered(null);
     setSubmitting(false);
-    setProgress(null);
     setError(null);
   }, [open]);
 
-  // Debounced search.
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    const timer = setTimeout(() => {
+    const t = setTimeout(() => {
       listCards(q ? { q } : {})
         .then((cards) => {
-          if (!cancelled) setResults(cards.filter((c) => c.id !== target.id));
+          if (!cancelled) setResults(cards.filter((c) => c.id !== currentCardId));
         })
         .catch((err) => {
           if (!cancelled) setError(err instanceof Error ? err.message : String(err));
@@ -61,55 +64,35 @@ export function MergeCardDialog({ target, open, onOpenChange, onMerged }: Props)
     }, SEARCH_DEBOUNCE_MS);
     return () => {
       cancelled = true;
-      clearTimeout(timer);
+      clearTimeout(t);
     };
-  }, [open, q, target.id]);
-
-  const toggleSelect = (c: CoreCard) => {
-    setSelected((prev) => {
-      const next = new Map(prev);
-      if (next.has(c.id)) next.delete(c.id);
-      else next.set(c.id, c);
-      return next;
-    });
-  };
+  }, [open, q, currentCardId]);
 
   const onConfirm = async () => {
-    if (selected.size === 0) return;
+    if (!selected) return;
     setSubmitting(true);
     setError(null);
-    const ids = Array.from(selected.keys());
-    setProgress({ done: 0, total: ids.length });
     try {
-      for (let i = 0; i < ids.length; i++) {
-        await mergeCards(ids[i], target.id);
-        setProgress({ done: i + 1, total: ids.length });
-      }
+      await matchPlacement(placement.id, selected.id);
       onOpenChange(false);
-      onMerged();
+      onMoved();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setSubmitting(false);
-      setProgress(null);
     }
   };
 
-  const targetLabel = target.name ?? 'this card';
-  const confirmLabel = progress
-    ? `Merging ${progress.done}/${progress.total}…`
-    : selected.size > 0
-      ? `Merge ${selected.size} into ${targetLabel}`
-      : 'Pick at least one';
+  const previewCard = hovered ?? selected;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle className="truncate">Merge duplicates into {targetLabel}</DialogTitle>
+          <DialogTitle>Move placement to a different card</DialogTitle>
           <DialogDescription>
-            Pick the duplicate cards that should fold into this one. Their placements get
-            repointed; the duplicates are deleted. This cannot be undone.
+            Pick the card this placement should belong to. The placement will be linked there as
+            <em> user-confirmed</em>; the previous card (if any) loses this one placement.
           </DialogDescription>
         </DialogHeader>
 
@@ -147,12 +130,12 @@ export function MergeCardDialog({ target, open, onOpenChange, onMerged }: Props)
               ) : (
                 <ul className="divide-y divide-border">
                   {results.map((c) => {
-                    const isSelected = selected.has(c.id);
+                    const isSelected = selected?.id === c.id;
                     return (
                       <li key={c.id}>
                         <button
                           type="button"
-                          onClick={() => toggleSelect(c)}
+                          onClick={() => setSelected(c)}
                           onMouseEnter={() => setHovered(c)}
                           onFocus={() => setHovered(c)}
                           className={cn(
@@ -160,7 +143,6 @@ export function MergeCardDialog({ target, open, onOpenChange, onMerged }: Props)
                             isSelected ? 'bg-primary/10' : 'hover:bg-muted',
                           )}
                         >
-                          <CheckIndicator selected={isSelected} />
                           <div className="aspect-card w-8 rounded overflow-hidden bg-muted shrink-0">
                             <img
                               src={c.representative_crop_url}
@@ -186,14 +168,38 @@ export function MergeCardDialog({ target, open, onOpenChange, onMerged }: Props)
                 </ul>
               )}
             </div>
-
-            <div className="text-xs text-muted-foreground tabular-nums">
-              {selected.size} selected
-            </div>
           </div>
 
           <aside className="hidden md:block">
-            <ZoomPreview card={hovered} />
+            {previewCard ? (
+              <div className="space-y-2">
+                <div className="aspect-card overflow-hidden rounded-lg border border-border bg-muted shadow-md">
+                  <img
+                    src={previewCard.representative_crop_url}
+                    alt=""
+                    className="size-full object-cover"
+                  />
+                </div>
+                <div>
+                  <div className="font-medium text-sm truncate">
+                    {previewCard.name ?? 'Unknown'}
+                  </div>
+                  <div className="text-xs text-muted-foreground truncate">
+                    {[previewCard.set, previewCard.number, previewCard.year]
+                      .filter(Boolean)
+                      .join(' · ') || previewCard.type}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {previewCard.placement_count} placement
+                    {previewCard.placement_count === 1 ? '' : 's'}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-lg border-2 border-dashed border-border bg-muted/20 aspect-card grid place-items-center text-xs text-muted-foreground p-3 text-center">
+                Hover or pick a card
+              </div>
+            )}
           </aside>
         </div>
 
@@ -207,50 +213,15 @@ export function MergeCardDialog({ target, open, onOpenChange, onMerged }: Props)
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancel
           </Button>
-          <Button onClick={onConfirm} disabled={selected.size === 0 || submitting}>
-            {confirmLabel}
+          <Button onClick={onConfirm} disabled={!selected || submitting}>
+            {submitting
+              ? 'Moving…'
+              : selected
+                ? `Move to ${selected.name ?? 'selected card'}`
+                : 'Pick a card'}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function CheckIndicator({ selected }: { selected: boolean }) {
-  return (
-    <div
-      className={cn(
-        'size-5 rounded border-2 grid place-items-center shrink-0 transition-colors',
-        selected ? 'bg-primary border-primary' : 'border-muted-foreground/40 bg-background',
-      )}
-    >
-      {selected && <Check className="size-3.5 text-primary-foreground" />}
-    </div>
-  );
-}
-
-function ZoomPreview({ card }: { card: CoreCard | null }) {
-  if (!card) {
-    return (
-      <div className="rounded-lg border-2 border-dashed border-border bg-muted/20 aspect-card grid place-items-center text-xs text-muted-foreground p-3 text-center">
-        Hover a card to preview
-      </div>
-    );
-  }
-  return (
-    <div className="space-y-2">
-      <div className="aspect-card overflow-hidden rounded-lg border border-border bg-muted shadow-md">
-        <img src={card.representative_crop_url} alt="" className="size-full object-cover" />
-      </div>
-      <div>
-        <div className="font-medium text-sm truncate">{card.name ?? 'Unknown'}</div>
-        <div className="text-xs text-muted-foreground truncate">
-          {[card.set, card.number, card.year].filter(Boolean).join(' · ') || card.type}
-        </div>
-        <div className="text-xs text-muted-foreground mt-1">
-          {card.placement_count} placement{card.placement_count === 1 ? '' : 's'}
-        </div>
-      </div>
-    </div>
   );
 }

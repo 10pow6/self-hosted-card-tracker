@@ -6,6 +6,7 @@ against CORE, and writes the rows.
 """
 from __future__ import annotations
 
+import json
 import uuid
 from contextlib import closing
 from dataclasses import dataclass
@@ -36,6 +37,7 @@ class _ProcessedSlot:
     embedding: Optional[np.ndarray]
     candidates: list[match.Candidate]
     status: str                            # 'empty' | 'auto_matched' | 'pending' | 'new_card'
+    polygon_json: Optional[str]            # JSON-encoded [[x,y],...] in source-image px
 
 
 def ingest_page(
@@ -85,6 +87,7 @@ def ingest_page(
                         embedding=None,
                         candidates=[],
                         status="empty",
+                        polygon_json=None,
                     )
                 )
                 continue
@@ -92,6 +95,7 @@ def ingest_page(
             if not polygon or len(polygon) != 4:
                 raise IngestError(f"Slot {idx}: polygon must have exactly 4 points")
             quad = np.array(polygon, dtype=np.float32)
+            polygon_json = json.dumps([[float(p[0]), float(p[1])] for p in polygon])
             crop_bgr = _warp_card(img, quad)
             crop_path = crops_dir / f"slot_{idx}.jpg"
             cv2.imwrite(str(crop_path), crop_bgr)
@@ -116,6 +120,7 @@ def ingest_page(
                     embedding=embedding,
                     candidates=candidates,
                     status=status,
+                    polygon_json=polygon_json,
                 )
             )
 
@@ -152,14 +157,15 @@ def ingest_page(
                 conn.execute(
                     """
                     INSERT INTO placement
-                      (id, page_id, slot_index, crop_image_path, embedding,
+                      (id, page_id, slot_index, polygon, crop_image_path, embedding,
                        embedder_name, embedder_version, core_card_id,
                        similarity_score, review_status, resolved_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'auto_matched', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'auto_matched', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
                     """,
                     (
-                        placement_id, page_id, slot.slot_index, slot.crop_relative,
-                        embedding_blob, embedder.name, embedder.version, top_id, top_sim,
+                        placement_id, page_id, slot.slot_index, slot.polygon_json,
+                        slot.crop_relative, embedding_blob, embedder.name, embedder.version,
+                        top_id, top_sim,
                     ),
                 )
             elif slot.status == "pending":
@@ -167,13 +173,14 @@ def ingest_page(
                 conn.execute(
                     """
                     INSERT INTO placement
-                      (id, page_id, slot_index, crop_image_path, embedding,
+                      (id, page_id, slot_index, polygon, crop_image_path, embedding,
                        embedder_name, embedder_version, similarity_score, review_status)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
                     """,
                     (
-                        placement_id, page_id, slot.slot_index, slot.crop_relative,
-                        embedding_blob, embedder.name, embedder.version, top_sim,
+                        placement_id, page_id, slot.slot_index, slot.polygon_json,
+                        slot.crop_relative, embedding_blob, embedder.name, embedder.version,
+                        top_sim,
                     ),
                 )
             else:  # new_card
@@ -194,14 +201,15 @@ def ingest_page(
                 conn.execute(
                     """
                     INSERT INTO placement
-                      (id, page_id, slot_index, crop_image_path, embedding,
+                      (id, page_id, slot_index, polygon, crop_image_path, embedding,
                        embedder_name, embedder_version, core_card_id,
                        similarity_score, review_status, resolved_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'new_card', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new_card', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
                     """,
                     (
-                        placement_id, page_id, slot.slot_index, slot.crop_relative,
-                        embedding_blob, embedder.name, embedder.version, core_id, top_sim,
+                        placement_id, page_id, slot.slot_index, slot.polygon_json,
+                        slot.crop_relative, embedding_blob, embedder.name, embedder.version,
+                        core_id, top_sim,
                     ),
                 )
 

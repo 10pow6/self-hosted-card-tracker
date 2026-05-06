@@ -46,13 +46,16 @@ The most-touched table. One row per slot in the binder's grid (including deliber
 | `id` | `pl-{12-hex}` |
 | `page_id` | FK → `page.id` (CASCADE). |
 | `slot_index` | `0 .. layout.total - 1`, row-major. |
+| `polygon` | JSON-encoded `[[x,y], [x,y], [x,y], [x,y]]` in source-image px (resized scan, max 1500 long edge). NULL only for `empty` placements. |
 | `crop_image_path` | NULL when `review_status = 'empty'`. |
 | `embedding`, `embedder_name`, `embedder_version` | NULL when empty; otherwise the placement's own embedding (so we can re-rank later). |
 | `core_card_id` | NULL while pending; set on auto/user/new resolutions. |
-| `similarity_score` | Top-1 sim at ingest time; informational. |
+| `similarity_score` | Top-1 sim against the linked card; updated by reassign and refine actions. |
 | `review_status` | One of `pending`, `auto_matched`, `user_confirmed`, `new_card`, `empty`. CHECK-constrained. |
 | `deferred_at` | NULL = active; set when the user defers a pending item. |
 | `(page_id, slot_index)` | UNIQUE. |
+
+The polygon is what the refine UI starts from; saving a refinement re-warps the source image through the new polygon, re-embeds the resulting crop, and updates `polygon`, `crop_image_path`, `embedding`. The placement's `core_card_id` and `review_status` are NOT touched by refine — that's a separate user decision via reassign / promote-new / unmatch.
 
 ## Identity rules
 
@@ -70,14 +73,15 @@ If two `core_card` rows turn out to represent the same physical card identity, m
 
 Crop files on disk are **not** touched: each placement still owns its own `crop_image_path`, and the target CORE keeps whatever `representative_crop_path` it had. Only the source's CORE row goes away.
 
-### UI flow — "Merge duplicates"
+### UI flow — `/cards/merge`
 
-The frontend exposes this on the CardDetail page as a **Merge duplicates** button. The dialog inverts the API direction for ergonomics:
+Merging is a **database-level** operation, not a per-card-detail action. The dedicated route `/cards/merge` is the only UI surface for it. Reach it from the **Merge duplicates** button in the Card database (`/cards`) page header, or directly via URL with optional `?target=<id>` pre-selection.
 
-- **Target** is the card whose CardDetail you're on (the "winner").
-- **Sources** are picked from a typeahead-searchable, multi-select list of every other CORE card.
-- A hover preview pane (desktop) shows the card under the cursor at large size with metadata.
-- Confirming runs the merges sequentially with a progress indicator. The target page refreshes in place when complete (placement count grows, no navigation).
+The page is a two-pane layout (full content width, side-by-side on desktop, stacked on mobile):
+
+- **Target pane (left)** — the keeper. Single selection. Search + list. Big preview + placement count when set, with a clear button.
+- **Sources pane (right)** — the duplicates being folded in. Multi-select. Selected cards shown as a tile grid above the search list (click a tile to remove). The current target is excluded and visually disabled in the source list.
+- **Footer** — selection summary plus a confirm button labeled `Merge N into <target>`. Confirms run sequentially with a progress indicator; navigates to the target's CardDetail on success.
 
 After a merge, future similarity searches benefit because the target now has more confirmed photos contributing to its match score (see [embeddings.md](embeddings.md)).
 

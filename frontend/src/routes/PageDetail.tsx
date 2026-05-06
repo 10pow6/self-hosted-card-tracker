@@ -84,9 +84,10 @@ function PlacementSlot({ placement }: { placement: Placement }) {
       </div>
     );
   }
-  const linkTarget = placement.core_card_id
-    ? `/cards/${placement.core_card_id}`
-    : '/review';
+  // Clicking a populated slot goes to the refine view — the most powerful action
+  // here (re-crop / move / promote / unmatch). The refine sidebar links to the
+  // currently-matched CORE card if you just want to inspect that.
+  const linkTarget = `/placements/${placement.id}/refine`;
   return (
     <Link to={linkTarget} className="group">
       <div

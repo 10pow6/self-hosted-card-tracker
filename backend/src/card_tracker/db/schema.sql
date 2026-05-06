@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS placement (
     id                TEXT PRIMARY KEY,
     page_id           TEXT NOT NULL REFERENCES page(id) ON DELETE CASCADE,
     slot_index        INTEGER NOT NULL,
+    polygon           TEXT,                              -- JSON: [[x,y], [x,y], [x,y], [x,y]] in source-image px
     crop_image_path   TEXT,
     embedding         BLOB,
     embedder_name     TEXT,

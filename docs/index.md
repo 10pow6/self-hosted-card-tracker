@@ -12,6 +12,7 @@ Project-internal reference. For the project pitch, screenshots, and quickstart s
 | Page detection (OpenCV pipeline) | [detection.md](detection.md) |
 | Embeddings & similarity (DINOv2, thresholds) | [embeddings.md](embeddings.md) |
 | Review queue (states, defer, shortcuts) | [review-queue.md](review-queue.md) |
+| Placement management (refine, move, promote, unmatch) | [placement-management.md](placement-management.md) |
 | Binder layouts (RxC parsing, supported sizes) | [layouts.md](layouts.md) |
 | HTTP API reference | [api.md](api.md) |
 | Install + first run | [setup.md](setup.md) |

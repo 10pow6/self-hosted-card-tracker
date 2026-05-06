@@ -41,6 +41,18 @@ All bodies are JSON unless noted. All `*_at` timestamps are ISO 8601 UTC (`YYYY-
 | POST | `/api/scans/preview` | `multipart/form-data`: `image` (file), `layout?` (string) | `{scan_id, image_url, image_size, bbox, rows, cols, slots}`. 422 if decode/detect fails. |
 | POST | `/api/scans/commit` | `{scan_id, binder_id, page_number, slots: [{slot_index, polygon, disabled}]}` | `{scan_id, page_id, binder_id, page_number, crops, empty_slots, summary}`. 422 on conflict (page already exists) or invalid input. |
 
+## Placements (management)
+
+Per-placement actions for fixing mistakes (bad merge, wrong auto-match) or improving the crop.
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| GET | `/api/placements/{placement_id}` | — | Full context: `polygon` (or null), `page` (source image url + dimensions + layout), `core_card` (currently linked), `candidates[]` (top-3 against current embedding). |
+| POST | `/api/placements/{placement_id}/match` | `{core_card_id}` | Reassigns to a (possibly different) CORE card. Sets `review_status = 'user_confirmed'`. |
+| POST | `/api/placements/{placement_id}/promote-new` | — | Creates a new CORE row from this placement. Sets `review_status = 'new_card'`. |
+| POST | `/api/placements/{placement_id}/unmatch` | — | Clears link, sets `review_status = 'pending'`. Empty slots are rejected. |
+| PUT | `/api/placements/{placement_id}/polygon` | `{polygon: [[x,y]×4]}` | Re-warps source through new polygon, re-embeds. Returns refreshed placement. Does NOT change `core_card_id` / `review_status`. |
+
 ## Review
 
 | Method | Path | Body | Returns |

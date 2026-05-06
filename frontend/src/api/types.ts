@@ -114,6 +114,26 @@ export type Candidate = {
   similarity: number;
 };
 
+export type PlacementPageContext = {
+  id: string;
+  binder_id: string;
+  binder_name: string;
+  page_number: number;
+  source_image_url: string | null;
+  image_size: [number, number];
+  layout: string;
+  rows: number;
+  cols: number;
+};
+
+export type PlacementDetail = Placement & {
+  polygon: [Point, Point, Point, Point] | null;
+  similarity_score: number | null;
+  page: PlacementPageContext;
+  core_card: CoreCard | null;
+  candidates: Candidate[];
+};
+
 export type ReviewQueueItem = {
   placement: Placement;
   candidates: Candidate[];

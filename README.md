@@ -170,6 +170,10 @@ Released under the [MIT License](LICENSE). Copyright © 2026 10pow6 LLC.
 
 > The software is provided **"as is"**, without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and non-infringement. In no event shall the authors or copyright holders be liable for any claim, damages, or other liability arising from the use of the software.
 
+## Support
+
+If Card Tracker saves you a few "where did I put my Charizard?" hours and you'd like to chip in, **pay-what-you-want via Stripe**: <https://buy.stripe.com/cN2dUh9Jw0b1eo8000>. Entirely optional — the project is and stays MIT-licensed and self-hostable for free.
+
 ## 10pow6
 
 - GitHub — <https://github.com/10pow6>

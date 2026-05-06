@@ -8,7 +8,7 @@ Backend lives in [`services/placements.py`](../backend/src/card_tracker/services
 
 | Action | What it does | API |
 |---|---|---|
-| **Move to a different card** | Reassigns the placement to (potentially) any other CORE row. Sets `review_status = 'user_confirmed'`, recomputes `similarity_score` against the new target's photos. | `POST /api/placements/{id}/match` `{core_card_id}` |
+| **Move to a different card** | Reassigns the placement to (potentially) any other CORE row. Sets `review_status = 'user_confirmed'`, recomputes `similarity_score` against the new target's photos. **Auto-prunes** the previous CORE row if this was its last placement (see "Auto-prune" below). | `POST /api/placements/{id}/match` `{core_card_id}` |
 | **Promote to new card** | Creates a fresh CORE row from this placement (using its current embedding + crop) and links the placement to it. Sets `review_status = 'new_card'`. | `POST /api/placements/{id}/promote-new` |
 | **Send to review queue** | Clears `core_card_id`, sets `review_status = 'pending'`. Useful when you realize the linked card is wrong but don't yet know what's right. | `POST /api/placements/{id}/unmatch` |
 | **Refine polygon** | Drag corners over the original source page photo, save → backend re-warps the crop, re-embeds it, updates `polygon` / `crop_image_path` / `embedding`. **Match assignment is preserved** (you re-classify separately if you want). | `PUT /api/placements/{id}/polygon` `{polygon: [[x,y]×4]}` |
@@ -33,6 +33,18 @@ What it does NOT do:
 - Change `core_card_id` or `review_status` — your match decision is preserved across refines.
 - Touch other placements or core_cards.
 - Re-run the page detector.
+
+## Auto-prune on reassignment
+
+When **Move to a different card** runs and the placement was the *last* one linked to its previous CORE row, that row would otherwise become a zombie (visible in `/cards`, looks owned, but no physical placement exists). To avoid that, `services/placements.py::assign_to_core` calls `_maybe_prune_orphan_core` after the reassignment:
+
+1. Count remaining placements on the old CORE. If > 0, do nothing.
+2. If 0, copy any metadata field from old → target where **target's is NULL and old's is non-NULL**. Fields covered: `name`, `set_name`, `card_number`, `year`, `card_type`, `notes`. Never overwrite — preserves user-typed metadata on the target.
+3. `DELETE` the orphan CORE row.
+
+Crop files on disk are not touched. The orphan's `representative_crop_path` typically pointed at the placement that just moved; the placement still owns that crop file via its own `crop_image_path`, so the file remains valid and reachable.
+
+This means de-duplication is now implicit when you fix a misassigned placement: if you had two CORE rows for the same printed card and you reassign the placement off the dupe to the canonical one, the dupe deletes itself and any metadata only the dupe had follows along. Explicit `/cards/merge` is still useful when *both* rows have placements and you want to consolidate them.
 
 ## Recovering from a bad merge
 

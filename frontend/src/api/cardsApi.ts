@@ -58,3 +58,10 @@ export async function setRepresentative(
   if (!res.ok) throw new Error(`setRepresentative → ${res.status}: ${await res.text()}`);
   return (await res.json()) as CoreCard;
 }
+
+export async function deleteCard(cardId: string): Promise<void> {
+  const res = await fetch(`/api/cards/${encodeURIComponent(cardId)}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error(`deleteCard → ${res.status}: ${await res.text()}`);
+}

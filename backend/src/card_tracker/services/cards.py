@@ -147,6 +147,32 @@ def set_representative(card_id: str, placement_id: str) -> dict:
     return card
 
 
+def delete_card(card_id: str) -> None:
+    """Delete a CORE row that has zero placements. Refuses if any placement
+    still points at it — use `/cards/merge` for that case so the placements
+    move somewhere instead of becoming dangling references.
+
+    Raises:
+        CardMergeError: card unknown, or has remaining placements.
+    """
+    with transaction() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM core_card WHERE id = ?", (card_id,)
+        ).fetchone()
+        if row is None:
+            raise CardMergeError(f"Unknown card: {card_id}")
+        n = conn.execute(
+            "SELECT COUNT(*) AS n FROM placement WHERE core_card_id = ?",
+            (card_id,),
+        ).fetchone()["n"]
+        if n > 0:
+            raise CardMergeError(
+                f"Cannot delete card {card_id}: still has {n} placement(s). "
+                "Use merge to consolidate, or move the placements first."
+            )
+        conn.execute("DELETE FROM core_card WHERE id = ?", (card_id,))
+
+
 def list_placements_for_card(card_id: str) -> list[dict]:
     sql = """
     SELECT pl.*, p.page_number AS pg_num, p.binder_id AS bndr_id, b.name AS bndr_name

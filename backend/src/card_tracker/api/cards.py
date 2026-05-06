@@ -1,9 +1,13 @@
+from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from card_tracker.config import settings
 from card_tracker.services import cards as cards_svc
+from card_tracker.services.export import render_collection_pdf
 
 router = APIRouter(prefix="/cards", tags=["cards"])
 
@@ -15,6 +19,18 @@ def list_cards(
     q: Optional[str] = Query(default=None),
 ) -> list[dict]:
     return cards_svc.list_cards(type_=type, needs_metadata=needs_metadata, q=q)
+
+
+@router.get("/export.pdf")
+def export_pdf() -> FileResponse:
+    """Render the entire CORE table to a multi-page PDF and return it.
+
+    Registered before `/{card_id}` so FastAPI matches the literal path first.
+    """
+    ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    out = settings.data_dir / "exports" / f"collection-{ts}.pdf"
+    render_collection_pdf(out)
+    return FileResponse(out, media_type="application/pdf", filename=out.name)
 
 
 @router.get("/{card_id}")
@@ -56,3 +72,13 @@ def set_representative(card_id: str, payload: RepresentativePayload) -> dict:
         return cards_svc.set_representative(card_id, payload.placement_id)
     except cards_svc.CardMergeError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/{card_id}")
+def delete_card(card_id: str) -> dict:
+    """Delete a CORE row with zero placements. 400 if it still has placements."""
+    try:
+        cards_svc.delete_card(card_id)
+    except cards_svc.CardMergeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"deleted": card_id}

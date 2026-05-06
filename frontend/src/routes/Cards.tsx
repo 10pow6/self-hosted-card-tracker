@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { GitMerge, LayoutGrid, Search, X } from 'lucide-react';
+import { Download, GitMerge, LayoutGrid, Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -79,12 +79,20 @@ export function Cards() {
         title="Card database"
         description="Every distinct card you've cataloged — type-agnostic. Pokémon and sports coexist."
         actions={
-          <Button asChild variant="outline" size="sm">
-            <Link to="/cards/merge">
-              <GitMerge className="size-3.5" />
-              Merge duplicates
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm">
+              <a href="/api/cards/export.pdf" download>
+                <Download className="size-3.5" />
+                Export PDF
+              </a>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/cards/merge">
+                <GitMerge className="size-3.5" />
+                Merge duplicates
+              </Link>
+            </Button>
+          </div>
         }
       />
       <section className="px-4 md:px-8 pb-12">

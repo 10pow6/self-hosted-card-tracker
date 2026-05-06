@@ -24,10 +24,15 @@ export function Review() {
   const refresh = useCallback(async () => {
     const q = await getQueue();
     setQueue(q);
-    setSelectedByPlacement((prev) => {
-      const next: Record<string, string> = { ...prev };
+    // Always snap to the current top candidate. Adding a new CORE elsewhere
+    // can re-rank a remaining placement's candidates; preserving the prior
+    // selection (even if still present) leaves the ring on a non-top tile,
+    // which is exactly the bug we're avoiding. Manual #2 picks are ephemeral
+    // within the current render — re-click after a refresh if needed.
+    setSelectedByPlacement(() => {
+      const next: Record<string, string> = {};
       for (const item of q) {
-        if (!next[item.placement.id] && item.candidates.length) {
+        if (item.candidates.length) {
           next[item.placement.id] = item.candidates[0].core_card.id;
         }
       }
@@ -51,6 +56,14 @@ export function Review() {
       refresh();
     },
     [selectedByPlacement, refresh],
+  );
+
+  const handlePickFromDb = useCallback(
+    async (placementId: string, coreCardId: string) => {
+      await confirmMatch(placementId, coreCardId);
+      refresh();
+    },
+    [refresh],
   );
 
   const handleNew = useCallback(
@@ -189,6 +202,7 @@ export function Review() {
                   onConfirm={() => handleConfirm(item.placement.id)}
                   onPromoteNew={() => handleNew(item.placement.id)}
                   onDefer={() => handleDeferToggle(item)}
+                  onPickFromDb={(coreCardId) => handlePickFromDb(item.placement.id, coreCardId)}
                 />
               ))}
             </div>

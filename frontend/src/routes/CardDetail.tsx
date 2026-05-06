@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { Crop, LayoutGrid, MapPin, Sparkles, Star } from 'lucide-react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Crop, LayoutGrid, MapPin, Sparkles, Star, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,13 +9,15 @@ import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { PlacementActions } from '@/components/PlacementActions';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
-import { getCard, listPlacementsForCard } from '@/api/cardsApi';
+import { deleteCard, getCard, listPlacementsForCard } from '@/api/cardsApi';
 import type { CoreCard, Placement } from '@/api/types';
 
 export function CardDetail() {
   const { id = '' } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [card, setCard] = useState<CoreCard | null | undefined>(undefined);
   const [placements, setPlacements] = useState<Placement[]>([]);
+  const [deleting, setDeleting] = useState(false);
 
   const refresh = useCallback(() => {
     getCard(id).then((c) => {
@@ -23,6 +25,20 @@ export function CardDetail() {
       if (c) listPlacementsForCard(c.id).then(setPlacements);
     });
   }, [id]);
+
+  const onDelete = async () => {
+    if (!card) return;
+    const label = card.name ?? 'this unnamed card';
+    if (!confirm(`Delete ${label}? This card has no placements; the row will be removed permanently.`)) return;
+    setDeleting(true);
+    try {
+      await deleteCard(card.id);
+      navigate('/cards');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
+      setDeleting(false);
+    }
+  };
 
   useEffect(() => {
     refresh();
@@ -116,7 +132,17 @@ export function CardDetail() {
                 <Badge variant="secondary">{placements.length}</Badge>
               </div>
               {placements.length === 0 ? (
-                <div className="text-sm text-muted-foreground">No placements yet.</div>
+                <div className="space-y-3">
+                  <div className="text-sm text-muted-foreground">
+                    No placements yet. This card is in the database but no physical
+                    instance is currently mapped to it — typically because every placement
+                    that pointed here has been moved elsewhere.
+                  </div>
+                  <Button variant="destructive" size="sm" onClick={onDelete} disabled={deleting}>
+                    <Trash2 className="size-3.5" />
+                    {deleting ? 'Deleting…' : 'Delete this card'}
+                  </Button>
+                </div>
               ) : (
                 <ul className="divide-y divide-border">
                   {placements.map((p) => {

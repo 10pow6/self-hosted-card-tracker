@@ -180,10 +180,58 @@ def get_placement(placement_id: str) -> Optional[dict]:
 # Reassignment
 
 
+_PRUNABLE_METADATA_FIELDS = ("name", "set_name", "card_number", "year", "card_type", "notes")
+
+
+def _maybe_prune_orphan_core(conn: sqlite3.Connection, old_core_id: str, new_core_id: str) -> None:
+    """If `old_core_id` has zero remaining placements, migrate any metadata
+    fields the target is missing, then delete the orphan.
+
+    Migration rule: copy field old → target only when target's is NULL and old's
+    is non-NULL. Never overwrite a value the user already entered on target —
+    that would silently stomp correct data with stale data from an
+    accidentally-reassigned placement.
+
+    Crop files on disk are not touched. The orphan's `representative_crop_path`
+    likely pointed at the placement that just moved away, but the placement
+    still owns its `crop_image_path` and the file remains valid.
+    """
+    if old_core_id == new_core_id:
+        return
+    remaining = conn.execute(
+        "SELECT COUNT(*) AS n FROM placement WHERE core_card_id = ?",
+        (old_core_id,),
+    ).fetchone()["n"]
+    if remaining > 0:
+        return
+    old = conn.execute("SELECT * FROM core_card WHERE id = ?", (old_core_id,)).fetchone()
+    target = conn.execute("SELECT * FROM core_card WHERE id = ?", (new_core_id,)).fetchone()
+    if old is None or target is None:
+        return
+    updates: list[str] = []
+    params: list[object] = []
+    for f in _PRUNABLE_METADATA_FIELDS:
+        if target[f] is None and old[f] is not None:
+            updates.append(f"{f} = ?")
+            params.append(old[f])
+    if updates:
+        updates.append("updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')")
+        params.append(new_core_id)
+        conn.execute(
+            f"UPDATE core_card SET {', '.join(updates)} WHERE id = ?",
+            params,
+        )
+    conn.execute("DELETE FROM core_card WHERE id = ?", (old_core_id,))
+
+
 def assign_to_core(placement_id: str, core_card_id: str) -> None:
     """Link a placement to a (possibly different) CORE card. Sets status to
     'user_confirmed' regardless of previous state. Useful for fixing a bad
     auto-match or moving a placement after a merge mistake.
+
+    Auto-prune: if the placement was the last one on its previous CORE row,
+    that row is deleted after migrating any metadata fields the target is
+    missing. See `_maybe_prune_orphan_core`.
     """
     with transaction() as conn:
         if conn.execute(
@@ -191,13 +239,16 @@ def assign_to_core(placement_id: str, core_card_id: str) -> None:
         ).fetchone() is None:
             raise PlacementError(f"Unknown core_card: {core_card_id}")
         # Recompute similarity_score against the new target's photos so the
-        # stored value reflects current evidence.
+        # stored value reflects current evidence. Also fetch the OLD core_card_id
+        # so we know whether to consider an orphan-prune after the reassignment.
         row = conn.execute(
-            "SELECT embedding, embedder_name, embedder_version FROM placement WHERE id = ?",
+            "SELECT embedding, embedder_name, embedder_version, core_card_id "
+            "FROM placement WHERE id = ?",
             (placement_id,),
         ).fetchone()
         if row is None:
             raise PlacementError(f"Unknown placement: {placement_id}")
+        old_core_id: Optional[str] = row["core_card_id"]
         new_sim: Optional[float] = None
         if row["embedding"] is not None:
             embedding = np.frombuffer(row["embedding"], dtype=np.float32)
@@ -217,6 +268,8 @@ def assign_to_core(placement_id: str, core_card_id: str) -> None:
             "deferred_at = NULL WHERE id = ?",
             (core_card_id, new_sim, placement_id),
         )
+        if old_core_id is not None:
+            _maybe_prune_orphan_core(conn, old_core_id, core_card_id)
 
 
 def promote_to_new_card(placement_id: str) -> str:

@@ -12,7 +12,7 @@ const noKeepAlive = new http.Agent({ keepAlive: false });
 // Use `localhost` rather than `127.0.0.1`: with WSL/Hyper-V/VirtualBox network
 // adapters present, Node's connect to the literal IPv4 loopback can hang behind
 // a delayed SYN/ACK, while DNS-resolved `localhost` takes a path that works.
-const BACKEND = 'http://localhost:8000';
+const BACKEND = 'http://127.0.0.1:8000';
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],

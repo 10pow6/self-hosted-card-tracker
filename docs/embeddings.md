@@ -36,11 +36,32 @@ If you ever swap embedders, mirror the new model's preprocessing here or accept 
 
 The first call downloads the weights (~90 MB) from HuggingFace into `data/models/`. Subsequent runs are fully offline. Override the cache with `HF_HOME=/some/path` in the environment if you don't want it under the repo.
 
-## Matching — match against placements, aggregate to CORE
+## Matching — pluggable matchers via a registry
 
-[`backend/src/card_tracker/services/match.py`](../backend/src/card_tracker/services/match.py)
+Similarity search + classification is encapsulated as a **matcher**. Matchers live in [`backend/src/card_tracker/matchers.py`](../backend/src/card_tracker/matchers.py) and implement a small protocol:
 
-For each query embedding we compare against **every confirmed `placement.embedding`** (any placement linked to a `core_card`), then aggregate by `core_card_id` taking the max similarity. The score for a card is the best photo we've ever taken of it.
+```python
+class Matcher(Protocol):
+    id: str
+    version: str
+    def find_candidates(self, conn, embedding, top_k=3, *,
+                        embedder_name=None, embedder_version=None) -> list[Candidate]: ...
+    def classify(self, top_similarity: float,
+                 candidates: list[Candidate] | None = None) -> str: ...
+```
+
+[`services/match.py`](../backend/src/card_tracker/services/match.py) is a thin facade that delegates to whichever matcher `config.matcher_id` selects, so call sites (`services.ingest`, `services.placements`, `services.review`) don't depend on the active strategy. Adding a new matcher (e.g. an RRF ensemble or a learned reranker) means dropping a class into the registry — no schema change, no caller change.
+
+### Built-in matchers
+
+| Id | Description |
+|---|---|
+| `cosine-max-v1` | Original behavior, frozen. A card's `rank_score` equals its single best photo's similarity. |
+| `cosine-multivote-v1` | **Default.** Same recall + raw similarity as `cosine-max-v1`, but the ranking score adds a small bonus per supporting photo so well-evidenced cards rise in the review queue. Auto-match decisions still use the raw max — the bonus is sort-only. |
+
+### Common recall step
+
+Every built-in matcher pulls candidates the same way: compare the query against **every confirmed `placement.embedding`** under the same embedder identity, then aggregate per `core_card_id`. A card's "raw similarity" is the max over its photos — the best snapshot we have of it.
 
 ```python
 rows = conn.execute(
@@ -67,6 +88,34 @@ The naive approach is to compare against `core_card.embedding` directly. We did 
 Matching against all placements gives the same physical card multiple "votes" — same-card photos under different conditions all contribute. Same-card similarity stays robust as the collection grows.
 
 A side effect: `core_card.embedding` is now redundant for matching. Kept on the schema for now (might be useful if we later add a fast pre-filter), but `find_candidates` doesn't read it.
+
+### Multi-vote ranking (`cosine-multivote-v1`)
+
+Pure max ranking has a real failure mode: a card with one lucky 0.91 photo outranks a card with five photos consistently at 0.86 — even though five-of-five at 0.86 is the stronger evidence for "I've seen this card before." The default matcher fixes this on the **ranking** axis only:
+
+```
+rank_score = max_sim + α · min(max(n_support − 1, 0), M)
+  where  n_support = #{ photos of this CORE with sim ≥ τ_low }
+  α = 0.01     (per-supporting-photo bonus)
+  τ_low = 0.80 (a photo "supports" if at least this similar)
+  M = 5        (cap → max bonus +0.05)
+```
+
+Subtracting 1 means a singleton card never gets a bonus — the bonus is purely for *additional* corroborating photos. The cap stops popular cards from running away with the score.
+
+**Auto-match safety is intentionally unchanged.** `classify()` still reads the raw max cosine and compares against `match_threshold` (0.92). The `+0.05` ceiling on the bonus is below `match_threshold − any plausibly-confused similarity`, so the bonus cannot promote a `pending` placement into `auto_matched` on its own — it only reorders the candidate list inside the review queue.
+
+Each `Candidate` carries:
+
+| Field | Meaning |
+|---|---|
+| `similarity` | Raw max cosine. Stored on `placement.similarity_score`, used for `classify()`. |
+| `rank_score` | Headline confidence — the sort key for the candidate list. |
+| `breakdown` | `{max_sim, n_placements, n_support, bonus, tau_low}` for UI display. |
+
+### When the bonus is wrong
+
+Multiple placements of the same CORE are **not independent observations** — they were usually photographed by the same user under the same lighting in one session, so "5 votes at 0.85" often reflects 5 near-duplicate photos of the same physical copy, not 5 independent confirmations. The cap on `M` (5) is a guardrail against that. If you find the bonus amplifies false positives in your collection (visually similar cards: same Pokémon different art, same player different year, generic energies), set `config.matcher_id = "cosine-max-v1"` to revert to pure max — no DB changes needed.
 
 ### Embedder-identity filter
 

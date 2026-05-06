@@ -172,7 +172,7 @@ export type AgentConnection = {
   status: 'configured' | 'available' | 'coming-soon';
 };
 
-export type ModelSlotId = 'detection' | 'embeddings' | 'metadata';
+export type ModelSlotId = 'detection' | 'embeddings' | 'matching' | 'metadata';
 
 export type ModelSlot = {
   id: ModelSlotId;

@@ -21,5 +21,7 @@ class Settings(BaseModel):
     match_threshold: float = 0.92
     review_threshold: float = 0.80
 
+    matcher_id: str = "cosine-multivote-v1"
+
 
 settings = Settings()

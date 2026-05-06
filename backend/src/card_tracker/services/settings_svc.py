@@ -69,6 +69,33 @@ def list_slots() -> list[dict]:
         },
     ]
 
+    matching = [
+        {
+            "id": "cosine-multivote-v1",
+            "name": "Cosine + multi-vote",
+            "description": (
+                "Cosine similarity against every confirmed placement, plus a small bonus "
+                "per supporting photo so well-evidenced cards rank above lucky one-shot near-misses. "
+                "Auto-match decisions still use raw max — the bonus is sort-only."
+            ),
+            "version": "1.0",
+            "status": "active",
+            "local": True,
+        },
+        {
+            "id": "cosine-max-v1",
+            "name": "Cosine (pure max)",
+            "description": (
+                "Original behavior — a card's score is its single best photo. "
+                "Use this if multi-vote ranking surfaces visually similar cards "
+                "(same Pokémon different art, same player different year)."
+            ),
+            "version": "1.0",
+            "status": "available",
+            "local": True,
+        },
+    ]
+
     metadata = [
         {
             "id": "manual",
@@ -129,6 +156,16 @@ def list_slots() -> list[dict]:
             "description": "Model used to embed card crops and find duplicates in CORE.",
             "active_option_id": settings.embedder_name,
             "options": embeddings,
+        },
+        {
+            "id": "matching",
+            "title": "Matching strategy",
+            "description": (
+                "How candidate scores are computed and ranked once embeddings exist. "
+                "Pluggable so future strategies (RRF ensemble, learned reranker) can drop in without UI changes."
+            ),
+            "active_option_id": settings.matcher_id,
+            "options": matching,
         },
         {
             "id": "metadata",

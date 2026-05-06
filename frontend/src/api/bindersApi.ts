@@ -1,4 +1,4 @@
-import type { Binder, Page } from './types';
+import type { Binder, DetectorConfig, Page } from './types';
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);
@@ -20,11 +20,21 @@ export async function getBinder(id: string): Promise<Binder | null> {
   return (await res.json()) as Binder;
 }
 
-export async function createBinder(name: string, layout: string = '3x3'): Promise<Binder> {
+export async function createBinder(
+  name: string,
+  layout: string = '3x3',
+  detector?: string | null,
+  detectorConfig?: DetectorConfig | null,
+): Promise<Binder> {
+  const body: Record<string, unknown> = { name, layout };
+  if (detector) body.detector = detector;
+  if (detectorConfig && Object.keys(detectorConfig).length > 0) {
+    body.detector_config = detectorConfig;
+  }
   return fetchJson<Binder>('/api/binders', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, layout }),
+    body: JSON.stringify(body),
   });
 }
 

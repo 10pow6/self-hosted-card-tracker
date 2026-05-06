@@ -1,9 +1,15 @@
 import type { CommitResponse, PreviewResponse, RawPreviewResponse, Slot } from './types';
 
-export async function previewScan(file: File, layout?: string): Promise<PreviewResponse> {
+export async function previewScan(
+  file: File,
+  opts: { binderId?: string; layout?: string } = {},
+): Promise<PreviewResponse> {
   const fd = new FormData();
   fd.append('image', file);
-  if (layout) fd.append('layout', layout);
+  // Prefer binderId — backend uses that binder's layout AND detection_config.
+  // Fall back to a bare layout for binder-less testing.
+  if (opts.binderId) fd.append('binder_id', opts.binderId);
+  else if (opts.layout) fd.append('layout', opts.layout);
   const res = await fetch('/api/scans/preview', { method: 'POST', body: fd });
   if (!res.ok) {
     const detail = await res.text();

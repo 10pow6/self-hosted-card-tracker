@@ -14,8 +14,9 @@ All bodies are JSON unless noted. All `*_at` timestamps are ISO 8601 UTC (`YYYY-
 
 | Method | Path | Body / Query | Returns |
 |---|---|---|---|
-| GET | `/api/binders` | — | `Binder[]` |
-| POST | `/api/binders` | `{name, layout?}` | `Binder` (201). Layout validated; invalid → 422. |
+| GET | `/api/binders` | — | `Binder[]` (each with `detector` + `detector_config`). |
+| GET | `/api/binders/detectors` | — | Catalog of detectors available for binder creation: `[{id, label, description, fields:[{key, default, min, max}]}]`. Mirrors `frontend/src/lib/detectors.ts`. |
+| POST | `/api/binders` | `{name, layout?, detector?, detector_config?}` | `Binder` (201). `detector` defaults to `'opencv-grid-v1'`; `detector_config` keys are validated against the chosen detector's schema. Invalid → 422. |
 | GET | `/api/binders/{binder_id}` | — | `Binder` or 404. |
 
 ## Pages
@@ -38,7 +39,7 @@ All bodies are JSON unless noted. All `*_at` timestamps are ISO 8601 UTC (`YYYY-
 
 | Method | Path | Body | Returns |
 |---|---|---|---|
-| POST | `/api/scans/preview` | `multipart/form-data`: `image` (file), `layout?` (string) | `{scan_id, image_url, image_size, bbox, rows, cols, slots}`. 422 if decode/detect fails. |
+| POST | `/api/scans/preview` | `multipart/form-data`: `image` (file), `binder_id?` (preferred — uses that binder's layout + detector + config), `layout?` (fallback when no `binder_id`) | `{scan_id, image_url, image_size, bbox, rows, cols, detector, slots}`. 422 if decode/detect fails. |
 | POST | `/api/scans/commit` | `{scan_id, binder_id, page_number, slots: [{slot_index, polygon, disabled}]}` | `{scan_id, page_id, binder_id, page_number, crops, empty_slots, summary}`. 422 on conflict (page already exists) or invalid input. |
 
 ## Placements (management)

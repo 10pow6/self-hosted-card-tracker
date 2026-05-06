@@ -16,14 +16,17 @@ import { PageHeader } from '@/components/PageHeader';
 import { BinderCard } from '@/components/BinderCard';
 import { EmptyState } from '@/components/EmptyState';
 import { LayoutPicker } from '@/components/LayoutPicker';
+import { DetectionConfigEditor } from '@/components/DetectionConfigEditor';
+import { DEFAULT_DETECTOR } from '@/lib/detectors';
 import { createBinder, listBinders } from '@/api/bindersApi';
-import type { Binder } from '@/api/types';
+import type { Binder, DetectorConfig } from '@/api/types';
 
 export function Binders() {
   const [binders, setBinders] = useState<Binder[] | null>(null);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [layout, setLayout] = useState('3x3');
+  const [detectorConfig, setDetectorConfig] = useState<DetectorConfig>({});
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -36,11 +39,12 @@ export function Binders() {
     setCreating(true);
     setCreateError(null);
     try {
-      const b = await createBinder(name.trim(), layout);
+      const b = await createBinder(name.trim(), layout, DEFAULT_DETECTOR, detectorConfig);
       setBinders((prev) => (prev ? [b, ...prev] : [b]));
       setOpen(false);
       setName('');
       setLayout('3x3');
+      setDetectorConfig({});
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -112,6 +116,12 @@ export function Binders() {
               <Label>Layout</Label>
               <LayoutPicker value={layout} onChange={setLayout} />
             </div>
+            <DetectionConfigEditor
+              detectorId={DEFAULT_DETECTOR}
+              value={detectorConfig}
+              onChange={setDetectorConfig}
+              layout={layout}
+            />
             {createError && (
               <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive whitespace-pre-wrap">
                 {createError}

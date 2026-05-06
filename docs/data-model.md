@@ -26,6 +26,8 @@ A row is **"unenriched"** when `name IS NULL` — surfaced in the UI as "needs m
 | `id` | `binder-{12-hex}` |
 | `name` | Free text, 1–200 chars. |
 | `layout` | Canonical `RxC` (e.g. `3x3`, `2x2`, `4x4`). See [layouts.md](layouts.md). |
+| `detector` | Detector id this binder uses for `/scans/preview`, e.g. `'opencv-grid-v1'`. See [detection.md](detection.md). |
+| `detector_config` | JSON; schema depends on `detector`. Subset of the detector's fields; missing keys fall back to that detector's defaults. |
 
 ### `page` — one photographed page within a binder
 

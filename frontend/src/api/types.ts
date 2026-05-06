@@ -77,13 +77,19 @@ export type CoreCard = {
 
 export type BinderLayout = string; // "RxC" (e.g. '3x3', '2x2', '4x4'); validated by backend
 
+// Detector-specific config — the schema depends on the binder's `detector`.
+// See lib/detectors.ts for the catalog of detectors and their config fields.
+export type DetectorConfig = Record<string, number>;
+
 export type Binder = {
   id: string;
   name: string;
   layout: BinderLayout;
+  detector: string; // e.g. 'opencv-grid-v1' (see lib/detectors.ts)
+  detector_config: DetectorConfig | null;
   page_count: number;
   card_count: number;
-  cover_thumbs: string[]; // up to 9 representative crop urls for the cover preview
+  cover_thumbs: string[]; // up to layout.total representative crop urls
   created_at: string;
 };
 

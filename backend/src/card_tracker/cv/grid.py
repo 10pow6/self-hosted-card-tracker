@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 import cv2
 import numpy as np
@@ -18,17 +19,27 @@ class GridNotFound(Exception):
 
 CANONICAL_CARD_SIZE = (480, 672)   # (width, height); ~1.4 portrait
 CARD_ASPECT = 88 / 63              # standard trading card aspect (~1.397)
-ASPECT_TOLERANCE = 0.20            # ±20% on aspect
 
 PLASTIC_V_MAX = 60                 # binder plastic is V ≤ this (black, glossy)
 PLASTIC_S_MAX = 40                 # AND nearly grayscale — excludes dark-but-colored regions
 PAGE_FILL_KERNEL = (40, 40)        # fill card-shaped holes when finding the binder silhouette
 
 CELL_OPEN_KERNEL = (5, 5)          # remove sleeve-glare specks inside a cell
-MIN_CELL_FILL = 0.30               # detected card must cover ≥30% of its cell to count
-MIN_HULL_FILL = 0.70               # convex-hull fills ≥70% of its bounding rect
 
 MAX_LONG_SIDE = 1500               # downscale large input photos
+
+
+# Tunable per-binder thresholds. Defaults work for 3×3; denser layouts (4×4+)
+# typically want lower MIN_CELL_FILL because each cell is smaller, so the
+# card-to-cell ratio is harder to hit.
+@dataclass(frozen=True)
+class DetectionConfig:
+    min_cell_fill: float = 0.30      # detected card must cover ≥ this % of its cell
+    min_hull_fill: float = 0.70      # convex-hull fills ≥ this % of its bounding rect
+    aspect_tolerance: float = 0.20   # ±% deviation from CARD_ASPECT
+
+
+DEFAULT_DETECTION = DetectionConfig()
 
 
 # ---------------------------------------------------------------------------
@@ -100,7 +111,10 @@ def _cell_card_mask(cell_bgr: np.ndarray) -> np.ndarray:
     return cv2.morphologyEx(mask, cv2.MORPH_OPEN, open_k)
 
 
-def _refine_card_in_cell(cell_bgr: np.ndarray) -> np.ndarray | None:
+def _refine_card_in_cell(
+    cell_bgr: np.ndarray,
+    config: DetectionConfig = DEFAULT_DETECTION,
+) -> np.ndarray | None:
     """Return a 4-corner quad for the card in the cell (cell-local coords), or None."""
     h, w = cell_bgr.shape[:2]
     cell_area = float(h * w)
@@ -115,13 +129,13 @@ def _refine_card_in_cell(cell_bgr: np.ndarray) -> np.ndarray | None:
     if rw == 0 or rh == 0:
         return None
     rect_area = float(rw * rh)
-    if rect_area / cell_area < MIN_CELL_FILL:
+    if rect_area / cell_area < config.min_cell_fill:
         return None
     aspect = max(rw, rh) / min(rw, rh)
-    if abs(aspect - CARD_ASPECT) > ASPECT_TOLERANCE * CARD_ASPECT:
+    if abs(aspect - CARD_ASPECT) > config.aspect_tolerance * CARD_ASPECT:
         return None
     hull_area = float(cv2.contourArea(hull))
-    if hull_area / rect_area < MIN_HULL_FILL:
+    if hull_area / rect_area < config.min_hull_fill:
         return None
     return cv2.boxPoints(rect).astype(np.float32)
 
@@ -139,6 +153,7 @@ def detect_slot_polygons(
     img: np.ndarray,
     rows: int = 3,
     cols: int = 3,
+    config: Optional[DetectionConfig] = None,
 ) -> tuple[np.ndarray, dict]:
     """Detect bbox + RxC slot polygons in image-pixel coordinates (no warping).
 
@@ -151,6 +166,7 @@ def detect_slot_polygons(
         sensible starting box to drag)
     Raises ``GridNotFound`` if the binder bbox itself cannot be located.
     """
+    cfg = config or DEFAULT_DETECTION
     img = _resize_max_side(img, MAX_LONG_SIDE)
     bbox = _page_bbox(img)
     if bbox is None:
@@ -161,7 +177,7 @@ def detect_slot_polygons(
         "bbox": [int(v) for v in bbox],
         "rows": int(rows),
         "cols": int(cols),
-        "slots": _detect_cell_polygons(img, bbox, rows=rows, cols=cols),
+        "slots": _detect_cell_polygons(img, bbox, rows=rows, cols=cols, config=cfg),
     }
     return img, payload
 
@@ -203,6 +219,7 @@ def _detect_cell_polygons(
     bbox: tuple[int, int, int, int],
     rows: int = 3,
     cols: int = 3,
+    config: DetectionConfig = DEFAULT_DETECTION,
 ) -> list[dict]:
     x, y, pw, ph = bbox
     cell_w = pw // cols
@@ -213,7 +230,7 @@ def _detect_cell_polygons(
             cx = x + col * cell_w
             cy = y + row * cell_h
             cell = img[cy : cy + cell_h, cx : cx + cell_w]
-            quad = _refine_card_in_cell(cell)
+            quad = _refine_card_in_cell(cell, config=config)
             if quad is not None:
                 polygon = (quad + np.array([cx, cy], dtype=np.float32))
                 refined = True

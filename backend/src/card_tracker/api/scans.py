@@ -12,14 +12,24 @@ router = APIRouter(prefix="/scans", tags=["scans"])
 async def post_preview(
     image: UploadFile = File(...),
     layout: Optional[str] = Form(default=None),
+    binder_id: Optional[str] = Form(default=None),
 ) -> dict:
     """Upload a page photo, run detection, return polygons for review.
 
-    `layout` is an optional form field like "3x3"; defaults to the system
-    default when not provided.
+    Form fields:
+      - `image` (required) — the photo.
+      - `binder_id` (optional) — if provided, the binder's layout AND its
+        per-binder `detection_config` are used.
+      - `layout` (optional) — RxC string like "3x3"; ignored when `binder_id`
+        is set, defaults to the system default otherwise.
     """
     try:
-        return preview_scan(await image.read(), image.filename or "", layout=layout)
+        return preview_scan(
+            await image.read(),
+            image.filename or "",
+            layout=layout,
+            binder_id=binder_id,
+        )
     except ScanError as e:
         raise HTTPException(status_code=422, detail=str(e))
 

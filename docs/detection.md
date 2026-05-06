@@ -40,7 +40,7 @@ If rejected: caller falls back to `_default_card_polygon` — a card-aspect rect
 
 ## Tuning constants
 
-All in [`cv/grid.py`](../backend/src/card_tracker/cv/grid.py):
+Process-wide constants in [`cv/grid.py`](../backend/src/card_tracker/cv/grid.py):
 
 | Constant | Value | What |
 |---|---|---|
@@ -49,11 +49,31 @@ All in [`cv/grid.py`](../backend/src/card_tracker/cv/grid.py):
 | `PLASTIC_S_MAX` | 40 | Max S (HSV); excludes dark-but-colored regions. |
 | `PAGE_FILL_KERNEL` | (40, 40) | Card-shaped hole fill. Increase if cards are very large in the frame. |
 | `CELL_OPEN_KERNEL` | (5, 5) | Inside-cell speck removal. |
-| `MIN_CELL_FILL` | 0.30 | Min rect / cell area ratio. **Lower this for dense layouts (4×4) where individual cells are small.** |
-| `MIN_HULL_FILL` | 0.70 | Min convex-hull tightness — drop for crumpled or sleeve-occluded cards. |
 | `CARD_ASPECT` | 88/63 | Trading-card aspect (~1.397). |
-| `ASPECT_TOLERANCE` | 0.20 | ±20% on aspect — be generous; tilt and perspective stretch this. |
 | `CANONICAL_CARD_SIZE` | (480, 672) | Output crop size after warp. Embedder gets this exact size. |
+
+### Per-binder tunable thresholds (`DetectionConfig`)
+
+Three thresholds are exposed per binder via `binder.detector_config` (see [data-model.md](data-model.md) and [the detector registry](../backend/src/card_tracker/detectors.py)):
+
+| Field | Default | Range | What |
+|---|---|---|---|
+| `min_cell_fill` | 0.30 | 0.05 – 0.60 | Min rect / cell area ratio. **Lower this for dense layouts (4×4) where each cell is small.** |
+| `min_hull_fill` | 0.70 | 0.30 – 0.95 | Min convex-hull tightness. Drop for crumpled or sleeve-occluded cards. |
+| `aspect_tolerance` | 0.20 | 0.05 – 0.50 | ±% deviation from `CARD_ASPECT`. Higher = more permissive on tilt/perspective. |
+
+The frontend's binder-create dialog renders an "Advanced detection tuning" disclosure with these fields. Per-binder values flow through `services/binders.resolve_detector(binder_id)` into the call to `detect_slot_polygons` during scan preview.
+
+## Adding new detectors
+
+The `detector` column on `binder` and the registry in [`backend/src/card_tracker/detectors.py`](../backend/src/card_tracker/detectors.py) are designed so adding a new detector (e.g. a YOLOv8n-trained card detector) is purely additive:
+
+1. Implement the detector function (taking a numpy image + per-call config dict, returning the same `(resized_img, payload)` shape as `detect_slot_polygons`).
+2. Add a `DetectorSpec` entry to `REGISTRY` with its config field schemas.
+3. Add a dispatch branch in `services/scans._run_detector`.
+4. Mirror the spec in [`frontend/src/lib/detectors.ts`](../frontend/src/lib/detectors.ts) (or just rely on the `/api/binders/detectors` endpoint).
+
+Existing binders keep their stored `detector` (e.g. `opencv-grid-v1`) unchanged — no migration. New binders default to whatever `detectors.DEFAULT_DETECTOR` is at creation time.
 
 ## Debug helper
 

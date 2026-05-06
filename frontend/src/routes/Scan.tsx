@@ -30,7 +30,9 @@ import { SlotThumbnails } from '@/components/SlotThumbnails';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { LayoutPicker } from '@/components/LayoutPicker';
-import type { Binder, CommitResponse, PreviewResponse, Slot } from '@/api/types';
+import { DetectionConfigEditor } from '@/components/DetectionConfigEditor';
+import { DEFAULT_DETECTOR } from '@/lib/detectors';
+import type { Binder, CommitResponse, DetectorConfig, PreviewResponse, Slot } from '@/api/types';
 import { parseLayout } from '@/lib/layout';
 import { cn } from '@/lib/utils';
 
@@ -99,6 +101,7 @@ export function Scan() {
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [newLayout, setNewLayout] = useState('3x3');
+  const [newDetectorConfig, setNewDetectorConfig] = useState<DetectorConfig>({});
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -172,12 +175,13 @@ export function Scan() {
     setCreating(true);
     setCreateError(null);
     try {
-      const b = await createBinder(newName.trim(), newLayout);
+      const b = await createBinder(newName.trim(), newLayout, DEFAULT_DETECTOR, newDetectorConfig);
       setAllBinders((prev) => (prev ? [b, ...prev] : [b]));
       selectBinder(b);
       setCreateOpen(false);
       setNewName('');
       setNewLayout('3x3');
+      setNewDetectorConfig({});
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -191,7 +195,7 @@ export function Scan() {
     setBusy(true);
     setError(null);
     try {
-      const res = await previewScan(file, binder.layout);
+      const res = await previewScan(file, { binderId: binder.id });
       setPreview(res);
       setSlots(res.slots);
     } catch (err) {
@@ -261,6 +265,8 @@ export function Scan() {
         onNewNameChange={setNewName}
         newLayout={newLayout}
         onNewLayoutChange={setNewLayout}
+        newDetectorConfig={newDetectorConfig}
+        onNewDetectorConfigChange={setNewDetectorConfig}
         createError={createError}
         onConfirmCreate={onCreate}
         creating={creating}
@@ -383,6 +389,8 @@ function BinderPicker({
   onNewNameChange,
   newLayout,
   onNewLayoutChange,
+  newDetectorConfig,
+  onNewDetectorConfigChange,
   createError,
   onConfirmCreate,
   creating,
@@ -396,6 +404,8 @@ function BinderPicker({
   onNewNameChange: (v: string) => void;
   newLayout: string;
   onNewLayoutChange: (v: string) => void;
+  newDetectorConfig: DetectorConfig;
+  onNewDetectorConfigChange: (v: DetectorConfig) => void;
   createError: string | null;
   onConfirmCreate: () => void;
   creating: boolean;
@@ -480,6 +490,12 @@ function BinderPicker({
               <Label>Layout</Label>
               <LayoutPicker value={newLayout} onChange={onNewLayoutChange} />
             </div>
+            <DetectionConfigEditor
+              detectorId={DEFAULT_DETECTOR}
+              value={newDetectorConfig}
+              onChange={onNewDetectorConfigChange}
+              layout={newLayout}
+            />
             {createError && (
               <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive whitespace-pre-wrap">
                 {createError}

@@ -18,10 +18,17 @@ CREATE TABLE IF NOT EXISTS core_card (
 );
 
 CREATE TABLE IF NOT EXISTS binder (
-    id         TEXT PRIMARY KEY,
-    name       TEXT NOT NULL,
-    layout     TEXT NOT NULL DEFAULT '3x3',
-    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    id              TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    layout          TEXT NOT NULL DEFAULT '3x3',
+    -- Which detector this binder uses for /scans/preview. Each detector has its own
+    -- config schema (see card_tracker.detectors). Adding a new detector (e.g.
+    -- 'yolo-cards-v1') is purely additive — no schema change.
+    detector        TEXT NOT NULL DEFAULT 'opencv-grid-v1',
+    -- JSON, schema depends on `detector`. Any subset of keys; missing keys fall
+    -- back to the detector's defaults.
+    detector_config TEXT,
+    created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
 CREATE TABLE IF NOT EXISTS page (

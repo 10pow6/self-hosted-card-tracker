@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { LayoutGrid, MapPin, Sparkles } from 'lucide-react';
+import { LayoutGrid, MapPin, Sparkles, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -118,28 +118,52 @@ export function CardDetail() {
                 <div className="text-sm text-muted-foreground">No placements yet.</div>
               ) : (
                 <ul className="divide-y divide-border">
-                  {placements.map((p) => (
-                    <li key={p.id} className="py-3 flex items-center gap-3">
-                      <div className="aspect-card w-12 rounded-md overflow-hidden bg-muted shrink-0">
-                        {p.crop_url && (
-                          <img src={p.crop_url} alt="" className="size-full object-cover" />
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{p.binder_name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          Page {p.page_number} · slot {p.slot_index + 1}
+                  {placements.map((p) => {
+                    const isSource =
+                      !!p.crop_url && p.crop_url === card.representative_crop_url;
+                    return (
+                      <li key={p.id} className="py-3 flex items-center gap-3">
+                        <div className="relative aspect-card w-12 rounded-md overflow-hidden bg-muted shrink-0">
+                          {p.crop_url && (
+                            <img src={p.crop_url} alt="" className="size-full object-cover" />
+                          )}
+                          {isSource && (
+                            <span
+                              className="absolute top-0.5 right-0.5 rounded-full bg-primary text-primary-foreground p-0.5"
+                              title="Current source image"
+                            >
+                              <Star className="size-2.5 fill-current" />
+                            </span>
+                          )}
                         </div>
-                      </div>
-                      <Button asChild variant="ghost" size="sm">
-                        <Link to={`/binders/${p.binder_id}/pages/${p.page_number}`}>
-                          <MapPin className="size-3.5" />
-                          View
-                        </Link>
-                      </Button>
-                      <PlacementActions placement={p} onChanged={refresh} />
-                    </li>
-                  ))}
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium truncate flex items-center gap-1.5">
+                            {p.binder_name}
+                            {isSource && (
+                              <span className="text-[10px] uppercase tracking-wider text-primary">
+                                source
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Page {p.page_number} · slot {p.slot_index + 1}
+                          </div>
+                        </div>
+                        <Button asChild variant="ghost" size="sm">
+                          <Link to={`/binders/${p.binder_id}/pages/${p.page_number}`}>
+                            <MapPin className="size-3.5" />
+                            View
+                          </Link>
+                        </Button>
+                        <PlacementActions
+                          placement={p}
+                          hostCardId={card.id}
+                          isCurrentSource={isSource}
+                          onChanged={refresh}
+                        />
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </CardContent>

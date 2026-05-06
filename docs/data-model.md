@@ -62,7 +62,7 @@ The polygon is what the refine UI starts from; saving a refinement re-warps the 
 ## Identity rules
 
 - **Each placement keeps its embedding.** When a card is moved between binders, its placement is deleted; the CORE row is untouched. The embedding-on-placement also lets the review queue recompute top-N candidates without re-embedding.
-- **The CORE row's `representative_crop_path`** is the placement crop that was first promoted to that core_card. It can be replaced manually later (not yet implemented).
+- **The CORE row's `representative_crop_path`** starts as the placement crop that seeded the card (the first photo). The user can promote any other linked placement's crop to be the source via **Set as source image** in the CardDetail placement-row menu (or `POST /api/cards/{id}/representative`). Useful when the seed photo is poor and a later scan yielded a better one.
 - **Different embedder versions never compare.** [`services/match.py`](../backend/src/card_tracker/services/match.py) filters core_cards by `embedder_name + embedder_version`; mixed-model collections will produce empty candidate lists for placements embedded under a different model.
 - **CORE rows are only created two ways:** (a) bootstrap when the table is empty during ingest, or (b) explicit user action via **Add as new card** in the review queue. Similarity-alone auto-creation was removed because it produced silent dupes.
 

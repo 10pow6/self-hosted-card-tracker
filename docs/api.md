@@ -34,6 +34,7 @@ All bodies are JSON unless noted. All `*_at` timestamps are ISO 8601 UTC (`YYYY-
 | GET | `/api/cards/{card_id}` | — | `CoreCard` or 404. |
 | GET | `/api/cards/{card_id}/placements` | — | `Placement[]`. |
 | POST | `/api/cards/{source_id}/merge` | `{target_id}` | `{target: CoreCard, moved_placements}`. Repoints all placements of `source_id` to `target_id`, then deletes the source. 400 on self-merge or unknown id. |
+| POST | `/api/cards/{card_id}/representative` | `{placement_id}` | Updated `CoreCard`. Sets `representative_crop_path` to that placement's crop. Validates the placement is linked to this card and has a crop. 400 on bad input. |
 
 ## Scans
 

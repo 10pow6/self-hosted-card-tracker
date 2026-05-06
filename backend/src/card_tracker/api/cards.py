@@ -43,3 +43,16 @@ def merge_card(source_id: str, payload: MergePayload) -> dict:
         return cards_svc.merge_cards(source_id, payload.target_id)
     except cards_svc.CardMergeError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+class RepresentativePayload(BaseModel):
+    placement_id: str
+
+
+@router.post("/{card_id}/representative")
+def set_representative(card_id: str, payload: RepresentativePayload) -> dict:
+    """Promote a placement's crop as this card's source/representative image."""
+    try:
+        return cards_svc.set_representative(card_id, payload.placement_id)
+    except cards_svc.CardMergeError as e:
+        raise HTTPException(status_code=400, detail=str(e))

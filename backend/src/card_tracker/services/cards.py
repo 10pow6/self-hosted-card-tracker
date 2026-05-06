@@ -111,6 +111,42 @@ def merge_cards(source_id: str, target_id: str) -> dict:
     return {"target": target, "moved_placements": int(moved)}
 
 
+def set_representative(card_id: str, placement_id: str) -> dict:
+    """Promote one of a card's placement crops to be the card's representative
+    (source) image. Validates the placement actually belongs to this card and
+    has a crop on disk.
+
+    Returns the updated card dict.
+    """
+    with transaction() as conn:
+        row = conn.execute(
+            "SELECT pl.crop_image_path, pl.core_card_id "
+            "FROM placement pl WHERE pl.id = ?",
+            (placement_id,),
+        ).fetchone()
+        if row is None:
+            raise CardMergeError(f"Unknown placement: {placement_id}")
+        if row["core_card_id"] != card_id:
+            raise CardMergeError(
+                f"Placement {placement_id} is not linked to card {card_id}."
+            )
+        if not row["crop_image_path"]:
+            raise CardMergeError(
+                f"Placement {placement_id} has no crop image (empty slot)."
+            )
+        cur = conn.execute(
+            "UPDATE core_card SET representative_crop_path = ?, "
+            "updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?",
+            (row["crop_image_path"], card_id),
+        )
+        if cur.rowcount == 0:
+            raise CardMergeError(f"Unknown card: {card_id}")
+    card = get_card(card_id)
+    if card is None:
+        raise CardMergeError(f"Card vanished after representative update: {card_id}")
+    return card
+
+
 def list_placements_for_card(card_id: str) -> list[dict]:
     sql = """
     SELECT pl.*, p.page_number AS pg_num, p.binder_id AS bndr_id, b.name AS bndr_name

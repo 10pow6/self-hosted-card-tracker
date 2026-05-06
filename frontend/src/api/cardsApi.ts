@@ -45,3 +45,16 @@ export async function mergeCards(sourceId: string, targetId: string): Promise<Me
   if (!res.ok) throw new Error(`mergeCards → ${res.status}: ${await res.text()}`);
   return (await res.json()) as MergeResult;
 }
+
+export async function setRepresentative(
+  cardId: string,
+  placementId: string,
+): Promise<CoreCard> {
+  const res = await fetch(`/api/cards/${encodeURIComponent(cardId)}/representative`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ placement_id: placementId }),
+  });
+  if (!res.ok) throw new Error(`setRepresentative → ${res.status}: ${await res.text()}`);
+  return (await res.json()) as CoreCard;
+}

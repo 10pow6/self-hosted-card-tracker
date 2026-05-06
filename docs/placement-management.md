@@ -12,6 +12,7 @@ Backend lives in [`services/placements.py`](../backend/src/card_tracker/services
 | **Promote to new card** | Creates a fresh CORE row from this placement (using its current embedding + crop) and links the placement to it. Sets `review_status = 'new_card'`. | `POST /api/placements/{id}/promote-new` |
 | **Send to review queue** | Clears `core_card_id`, sets `review_status = 'pending'`. Useful when you realize the linked card is wrong but don't yet know what's right. | `POST /api/placements/{id}/unmatch` |
 | **Refine polygon** | Drag corners over the original source page photo, save → backend re-warps the crop, re-embeds it, updates `polygon` / `crop_image_path` / `embedding`. **Match assignment is preserved** (you re-classify separately if you want). | `PUT /api/placements/{id}/polygon` `{polygon: [[x,y]×4]}` |
+| **Set as source image** | (Available on CardDetail rows only.) Promotes this placement's crop to be the linked card's `representative_crop_path` — the canonical thumbnail used everywhere in the UI. | `POST /api/cards/{card_id}/representative` `{placement_id}` |
 
 ## Where to find the actions
 

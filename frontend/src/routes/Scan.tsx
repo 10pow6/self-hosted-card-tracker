@@ -191,7 +191,14 @@ export function Scan() {
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !binder) return;
+    if (!file) return;
+    if (!binder) {
+      // Defensive: the capture input is gated `disabled={!ready}` so this
+      // branch shouldn't be reachable. If it ever is, log it so we can
+      // diagnose without surfacing a user-facing toast for an unreachable case.
+      console.warn('Scan.onFile: file picked before binder loaded — dropping.');
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -313,7 +320,9 @@ export function Scan() {
 
         {savedPages.length > 0 && <SessionStrip pages={savedPages} />}
 
-        {!preview && !committed && <CaptureStep busy={busy} onFile={onFile} pageNumber={pageNumber} />}
+        {!preview && !committed && (
+          <CaptureStep busy={busy} ready={binder !== null} onFile={onFile} pageNumber={pageNumber} />
+        )}
 
         {preview && !committed && (
           <>
@@ -546,30 +555,39 @@ function BinderPickRow({ binder, onPick }: { binder: Binder; onPick: () => void 
 
 function CaptureStep({
   busy,
+  ready,
   onFile,
   pageNumber,
 }: {
   busy: boolean;
+  ready: boolean; // false while the binder is still being hydrated
   onFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
   pageNumber: number;
 }) {
+  const disabled = busy || !ready;
   return (
     <Card className="overflow-hidden">
       <CardContent className="p-0">
-        <label className="flex flex-col items-center justify-center text-center px-6 py-12 md:py-16 cursor-pointer hover:bg-muted/40 transition-colors">
+        <label
+          className={
+            disabled
+              ? 'flex flex-col items-center justify-center text-center px-6 py-12 md:py-16 opacity-60 cursor-wait'
+              : 'flex flex-col items-center justify-center text-center px-6 py-12 md:py-16 cursor-pointer hover:bg-muted/40 transition-colors'
+          }
+        >
           <input
             type="file"
             accept="image/*"
             capture="environment"
             onChange={onFile}
-            disabled={busy}
+            disabled={disabled}
             className="hidden"
           />
           <div className="size-14 rounded-2xl bg-primary/10 text-primary grid place-items-center mb-4">
             <Camera className="size-7" />
           </div>
           <div className="text-lg font-semibold">
-            {busy ? 'Detecting…' : `Capture page ${pageNumber}`}
+            {!ready ? 'Loading binder…' : busy ? 'Detecting…' : `Capture page ${pageNumber}`}
           </div>
           <div className="mt-1 text-sm text-muted-foreground max-w-md">
             Frame the binder page so the 3×3 grid fills the photo. On mobile this will go straight

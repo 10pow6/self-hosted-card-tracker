@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Check, Clipboard, Search } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -10,6 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { updateCard, type UpdateCardFields } from '@/api/cardsApi';
 import type { CoreCard } from '@/api/types';
 
@@ -29,6 +31,7 @@ export function EditCardMetadataDialog({ open, onOpenChange, card, onSaved }: Pr
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [copyState, setCopyState] = useState<'idle' | 'copying' | 'copied'>('idle');
 
   // Reset the form to the card's current values each time we open.
   useEffect(() => {
@@ -40,7 +43,64 @@ export function EditCardMetadataDialog({ open, onOpenChange, card, onSaved }: Pr
     setType(card.type ?? 'other');
     setNotes(card.notes ?? '');
     setError(null);
+    setCopyState('idle');
   }, [open, card]);
+
+  const onSearchByUrl = () => {
+    if (!card.representative_crop_url) return;
+    const absoluteUrl = new URL(
+      card.representative_crop_url,
+      window.location.origin,
+    ).toString();
+    window.open(
+      `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(absoluteUrl)}`,
+      '_blank',
+      'noopener,noreferrer',
+    );
+  };
+
+  const onCopyAndSearch = async () => {
+    if (!card.representative_crop_url) return;
+    setCopyState('copying');
+    try {
+      // Re-encode through canvas as PNG — broadest clipboard compatibility.
+      const res = await fetch(card.representative_crop_url);
+      if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
+      const sourceBlob = await res.blob();
+      const objectUrl = URL.createObjectURL(sourceBlob);
+      const img = new Image();
+      img.src = objectUrl;
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('image decode failed'));
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('canvas 2d unsupported');
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(objectUrl);
+      const pngBlob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (b) => (b ? resolve(b) : reject(new Error('canvas.toBlob failed'))),
+          'image/png',
+        );
+      });
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
+      setCopyState('copied');
+      window.open('https://lens.google.com/', '_blank', 'noopener,noreferrer');
+      setTimeout(() => setCopyState('idle'), 4000);
+    } catch (err) {
+      console.warn('Clipboard copy failed:', err);
+      setCopyState('idle');
+      alert(
+        `Could not copy image to clipboard: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+  };
 
   const onSubmit = async () => {
     setSaving(true);
@@ -70,14 +130,79 @@ export function EditCardMetadataDialog({ open, onOpenChange, card, onSaved }: Pr
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-[min(1100px,90vw)]">
         <DialogHeader>
           <DialogTitle>Edit metadata</DialogTitle>
           <DialogDescription>
-            Manual entry. Leave any field empty to clear it.
+            Manual entry. Leave any field empty to clear it. Hover the card to zoom.
           </DialogDescription>
         </DialogHeader>
 
+        <div className="grid gap-6 sm:grid-cols-[280px_1fr] sm:items-start">
+          <div className="space-y-2">
+            {card.representative_crop_url ? (
+              <HoverCard openDelay={150} closeDelay={80}>
+                <HoverCardTrigger asChild>
+                  <div className="aspect-card rounded-xl overflow-hidden border border-border bg-muted cursor-zoom-in">
+                    <img
+                      src={card.representative_crop_url}
+                      alt={card.name ?? 'Card preview'}
+                      className="size-full object-cover"
+                    />
+                  </div>
+                </HoverCardTrigger>
+                <HoverCardContent side="right" align="start" className="w-[420px]">
+                  <img
+                    src={card.representative_crop_url}
+                    alt={card.name ?? 'Card preview (large)'}
+                    className="aspect-card w-full rounded-lg object-cover"
+                  />
+                </HoverCardContent>
+              </HoverCard>
+            ) : (
+              <div className="aspect-card rounded-xl overflow-hidden border border-border bg-muted" />
+            )}
+            {card.representative_crop_url && (
+              <div className="space-y-1.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={onSearchByUrl}
+                  title="Sends the image URL to Google Lens. Won't work for localhost or LAN — Google can't reach private addresses."
+                >
+                  <Search className="size-3.5" />
+                  Reverse image search
+                </Button>
+                <p className="text-[11px] text-muted-foreground leading-snug px-0.5">
+                  URL-based · won't work on localhost
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={onCopyAndSearch}
+                  disabled={copyState === 'copying'}
+                  title="Copies the image to your clipboard and opens Google Lens. Paste with Ctrl+V to search."
+                >
+                  {copyState === 'copied' ? (
+                    <>
+                      <Check className="size-3.5" />
+                      Copied — paste in Lens
+                    </>
+                  ) : (
+                    <>
+                      <Clipboard className="size-3.5" />
+                      {copyState === 'copying' ? 'Copying…' : 'Copy + reverse search'}
+                    </>
+                  )}
+                </Button>
+                <p className="text-[11px] text-muted-foreground leading-snug px-0.5">
+                  Paste with Ctrl+V · works anywhere
+                </p>
+              </div>
+            )}
+          </div>
         <div className="grid gap-3">
           <div className="grid gap-1.5">
             <Label htmlFor="meta-name">Name</Label>
@@ -111,7 +236,7 @@ export function EditCardMetadataDialog({ open, onOpenChange, card, onSaved }: Pr
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-[140px_1fr] gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="meta-year">Year</Label>
               <Input
@@ -123,17 +248,17 @@ export function EditCardMetadataDialog({ open, onOpenChange, card, onSaved }: Pr
                 placeholder="1999"
               />
             </div>
-            <div className="grid gap-1.5">
+            <div className="grid gap-1.5 min-w-0">
               <Label htmlFor="meta-type">Type</Label>
               <select
                 id="meta-type"
                 value={type}
                 onChange={(e) => setType(e.target.value as CoreCard['type'])}
-                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="w-full h-9 rounded-md border border-input bg-background text-foreground px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <option value="pokemon">Pokémon</option>
-                <option value="sports">Sports</option>
-                <option value="other">Other</option>
+                <option value="pokemon" className="bg-background text-foreground">Pokémon</option>
+                <option value="sports" className="bg-background text-foreground">Sports</option>
+                <option value="other" className="bg-background text-foreground">Other</option>
               </select>
             </div>
           </div>
@@ -155,6 +280,7 @@ export function EditCardMetadataDialog({ open, onOpenChange, card, onSaved }: Pr
               {error}
             </div>
           )}
+          </div>
         </div>
 
         <DialogFooter>

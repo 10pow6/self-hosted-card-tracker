@@ -120,6 +120,24 @@ export type Candidate = {
   similarity: number;
 };
 
+// Flat row for the Collection > All cards tab.
+export type PlacementSummary = {
+  id: string;
+  page_id: string;
+  binder_id: string;
+  binder_name: string;
+  page_number: number;
+  slot_index: number;
+  crop_url: string | null;
+  core_card_id: string | null;
+  core_card_name: string | null;
+  core_card_set: string | null;
+  core_card_number: string | null;
+  review_status: ReviewStatus;
+  similarity_score: number | null;
+  created_at: string;
+};
+
 export type PlacementPageContext = {
   id: string;
   binder_id: string;

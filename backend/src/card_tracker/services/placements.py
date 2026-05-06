@@ -35,6 +35,55 @@ class PlacementError(Exception):
 # Reads
 
 
+def list_placements() -> list[dict]:
+    """Flat list of every non-empty placement across every binder.
+
+    Used by the Collection > All cards tab. Each row carries enough context for
+    the UI to render a thumb + binder/page/slot label + linked-card metadata
+    (or "Unmatched" when the placement is still pending) and link straight to
+    `/placements/{id}/refine`. Ordered newest-first.
+
+    Returns a list — pagination + filtering are client-side, matching the
+    existing `/api/cards` shape. Acceptable into the tens of thousands.
+    """
+    sql = """
+    SELECT pl.id, pl.page_id, pl.slot_index, pl.crop_image_path,
+           pl.core_card_id, pl.review_status, pl.similarity_score, pl.created_at,
+           p.page_number, p.binder_id,
+           b.name AS binder_name,
+           cc.name AS core_card_name,
+           cc.set_name AS core_card_set,
+           cc.card_number AS core_card_number
+    FROM placement pl
+    JOIN page p   ON pl.page_id = p.id
+    JOIN binder b ON p.binder_id = b.id
+    LEFT JOIN core_card cc ON pl.core_card_id = cc.id
+    WHERE pl.review_status != 'empty'
+    ORDER BY pl.created_at DESC
+    """
+    with closing(connect()) as conn:
+        rows = conn.execute(sql).fetchall()
+        return [
+            {
+                "id": r["id"],
+                "page_id": r["page_id"],
+                "binder_id": r["binder_id"],
+                "binder_name": r["binder_name"],
+                "page_number": r["page_number"],
+                "slot_index": r["slot_index"],
+                "crop_url": to_url(r["crop_image_path"]),
+                "core_card_id": r["core_card_id"],
+                "core_card_name": r["core_card_name"],
+                "core_card_set": r["core_card_set"],
+                "core_card_number": r["core_card_number"],
+                "review_status": r["review_status"],
+                "similarity_score": r["similarity_score"],
+                "created_at": r["created_at"],
+            }
+            for r in rows
+        ]
+
+
 def _placement_dict(row: sqlite3.Row) -> dict:
     """Shape consistent with the page/cards endpoints' Placement DTO."""
     polygon = None

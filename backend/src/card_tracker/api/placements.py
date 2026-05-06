@@ -6,6 +6,12 @@ from card_tracker.services import placements as placements_svc
 router = APIRouter(prefix="/placements", tags=["placements"])
 
 
+@router.get("")
+def list_placements() -> list[dict]:
+    """Flat list of every non-empty placement (Collection > All cards tab)."""
+    return placements_svc.list_placements()
+
+
 @router.get("/{placement_id}")
 def get_placement(placement_id: str) -> dict:
     """Full placement context — page image, polygon, current match, top-N candidates."""

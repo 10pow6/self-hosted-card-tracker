@@ -12,7 +12,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PageHeader } from '@/components/PageHeader';
 import { BinderCard } from '@/components/BinderCard';
 import { EmptyState } from '@/components/EmptyState';
 import { LayoutPicker } from '@/components/LayoutPicker';
@@ -21,7 +20,7 @@ import { DEFAULT_DETECTOR } from '@/lib/detectors';
 import { createBinder, listBinders } from '@/api/bindersApi';
 import type { Binder, DetectorConfig } from '@/api/types';
 
-export function Binders() {
+export function BindersTab() {
   const [binders, setBinders] = useState<Binder[] | null>(null);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
@@ -54,43 +53,38 @@ export function Binders() {
 
   return (
     <>
-      <PageHeader
-        title="Your binders"
-        description="Each binder is a stack of physical pages, every slot mapped back to your card database."
-        actions={
-          <Button onClick={() => setOpen(true)}>
-            <Plus className="size-4" />
-            New binder
-          </Button>
-        }
-      />
-      <section className="px-4 md:px-8 pb-12">
-        {binders === null ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-72 rounded-xl" />
-            ))}
-          </div>
-        ) : binders.length === 0 ? (
-          <EmptyState
-            icon={Library}
-            title="No binders yet"
-            description="Create your first binder, then scan its pages from the Scan tab."
-            action={
-              <Button onClick={() => setOpen(true)}>
-                <Plus className="size-4" />
-                Create binder
-              </Button>
-            }
-          />
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {binders.map((b) => (
-              <BinderCard key={b.id} binder={b} />
-            ))}
-          </div>
-        )}
-      </section>
+      <div className="flex items-center justify-end mb-4">
+        <Button onClick={() => setOpen(true)}>
+          <Plus className="size-4" />
+          New binder
+        </Button>
+      </div>
+
+      {binders === null ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-72 rounded-xl" />
+          ))}
+        </div>
+      ) : binders.length === 0 ? (
+        <EmptyState
+          icon={Library}
+          title="No binders yet"
+          description="Create your first binder, then scan its pages from the Scan tab."
+          action={
+            <Button onClick={() => setOpen(true)}>
+              <Plus className="size-4" />
+              Create binder
+            </Button>
+          }
+        />
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {binders.map((b) => (
+            <BinderCard key={b.id} binder={b} />
+          ))}
+        </div>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>

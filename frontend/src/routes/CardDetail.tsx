@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { LayoutGrid, MapPin, Sparkles, Star } from 'lucide-react';
+import { Crop, LayoutGrid, MapPin, Sparkles, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -152,7 +152,13 @@ export function CardDetail() {
                         <Button asChild variant="ghost" size="sm">
                           <Link to={`/binders/${p.binder_id}/pages/${p.page_number}`}>
                             <MapPin className="size-3.5" />
-                            View
+                            View page
+                          </Link>
+                        </Button>
+                        <Button asChild variant="ghost" size="sm">
+                          <Link to={`/placements/${p.id}/refine`}>
+                            <Crop className="size-3.5" />
+                            Refine
                           </Link>
                         </Button>
                         <PlacementActions

@@ -25,8 +25,10 @@ type Pinch = {
 } | null;
 
 const HANDLE_R = 16;
+const HANDLE_HIT_R = 28; // invisible touch target — ~44px screen at 1× zoom
 const STROKE_W = 3;
 const REMOVE_R = 16;
+const REMOVE_HIT_R = 28;
 const ADD_R = 28;
 const ZOOM_STEP = 1.5;
 const CARD_ASPECT = 88 / 63;
@@ -259,7 +261,9 @@ export function PolygonEditor({ imageUrl, imageSize, bbox, rows, cols, slots, on
   const zoomFactor = w / vb[2];
   const stroke = STROKE_W / zoomFactor;
   const handleR = HANDLE_R / zoomFactor;
+  const handleHitR = HANDLE_HIT_R / zoomFactor;
   const removeR = REMOVE_R / zoomFactor;
+  const removeHitR = REMOVE_HIT_R / zoomFactor;
   const addR = ADD_R / zoomFactor;
 
   return (
@@ -328,19 +332,36 @@ export function PolygonEditor({ imageUrl, imageSize, bbox, rows, cols, slots, on
                 style={{ cursor: 'move' }}
               />
               {s.polygon.map((corner, ci) => (
-                <circle
+                <g
                   key={ci}
-                  cx={corner.x}
-                  cy={corner.y}
-                  r={handleR}
-                  fill="white"
-                  stroke="black"
-                  strokeWidth={stroke / 2}
                   onPointerDown={startCornerDrag(slotIdx, ci as 0 | 1 | 2 | 3)}
                   style={{ cursor: 'grab' }}
-                />
+                >
+                  {/* Invisible hit target — bigger than the visible dot for fat-finger-friendly touch. */}
+                  <circle
+                    cx={corner.x}
+                    cy={corner.y}
+                    r={handleHitR}
+                    fill="transparent"
+                  />
+                  <circle
+                    cx={corner.x}
+                    cy={corner.y}
+                    r={handleR}
+                    fill="white"
+                    stroke="black"
+                    strokeWidth={stroke / 2}
+                    style={{ pointerEvents: 'none' }}
+                  />
+                </g>
               ))}
               <g onPointerDown={removeSlot(slotIdx)} style={{ cursor: 'pointer' }}>
+                <circle
+                  cx={removeX}
+                  cy={removeY}
+                  r={removeHitR}
+                  fill="transparent"
+                />
                 <circle
                   cx={removeX}
                   cy={removeY}
@@ -348,6 +369,7 @@ export function PolygonEditor({ imageUrl, imageSize, bbox, rows, cols, slots, on
                   fill="#ef4444"
                   stroke="white"
                   strokeWidth={stroke / 2}
+                  style={{ pointerEvents: 'none' }}
                 />
                 <text
                   x={removeX}

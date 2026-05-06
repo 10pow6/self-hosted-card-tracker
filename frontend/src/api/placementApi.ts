@@ -1,4 +1,10 @@
-import type { Placement, PlacementDetail, Point } from './types';
+import type { Placement, PlacementDetail, PlacementSummary, Point } from './types';
+
+export async function listPlacements(): Promise<PlacementSummary[]> {
+  const res = await fetch('/api/placements');
+  if (!res.ok) throw new Error(`listPlacements → ${res.status}: ${await res.text()}`);
+  return (await res.json()) as PlacementSummary[];
+}
 
 type RawPlacementDetail = Omit<PlacementDetail, 'polygon'> & {
   polygon: [number, number][] | null;

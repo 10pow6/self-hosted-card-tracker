@@ -16,10 +16,22 @@ def to_relative(path: Path) -> str:
 
 
 def to_url(relative: Optional[str]) -> Optional[str]:
-    """Stored relative path → public URL served by the FastAPI StaticFiles mount."""
+    """Stored relative path → public URL served by the FastAPI StaticFiles mount.
+
+    Appends `?v=<mtime>` so the browser refetches when the underlying file is
+    overwritten in place (e.g. polygon refine re-warps a crop to the same path).
+    `crop_image_path` is intentionally stable across refines so URLs are cache-
+    able; the version param keeps caching honest by changing whenever the bytes
+    do. Falls back to the un-versioned URL if the file is missing.
+    """
     if not relative:
         return None
-    return f"/data/{relative}"
+    base = f"/data/{relative}"
+    try:
+        mtime = int((settings.data_dir / relative).stat().st_mtime)
+    except OSError:
+        return base
+    return f"{base}?v={mtime}"
 
 
 def from_relative(relative: str) -> Path:

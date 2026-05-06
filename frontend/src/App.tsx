@@ -2,7 +2,7 @@ import { HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Dashboard } from '@/routes/Dashboard';
 import { Scan } from '@/routes/Scan';
-import { Binders } from '@/routes/Binders';
+import { Collection } from '@/routes/Collection';
 import { BinderDetail } from '@/routes/BinderDetail';
 import { PageDetail } from '@/routes/PageDetail';
 import { Cards } from '@/routes/Cards';
@@ -20,7 +20,7 @@ function App() {
         <Route element={<Layout />}>
           <Route index element={<Dashboard />} />
           <Route path="scan" element={<Scan />} />
-          <Route path="binders" element={<Binders />} />
+          <Route path="binders" element={<Collection />} />
           <Route path="binders/:id" element={<BinderDetail />} />
           <Route path="binders/:id/pages/:n" element={<PageDetail />} />
           <Route path="cards" element={<Cards />} />

@@ -74,6 +74,29 @@ def set_representative(card_id: str, payload: RepresentativePayload) -> dict:
         raise HTTPException(status_code=400, detail=str(e))
 
 
+class UpdateCardPayload(BaseModel):
+    name: Optional[str] = None
+    set: Optional[str] = None
+    number: Optional[str] = None
+    year: Optional[int] = None
+    type: Optional[str] = None
+    notes: Optional[str] = None
+    model_config = {"extra": "forbid"}
+
+
+@router.patch("/{card_id}")
+def update_card(card_id: str, payload: UpdateCardPayload) -> dict:
+    """Partial update of user-editable metadata. Only fields present in the
+    request body are touched; omitted fields are left as-is. Empty / whitespace
+    strings are stored as NULL.
+    """
+    fields = payload.model_dump(exclude_unset=True)
+    try:
+        return cards_svc.update_metadata(card_id, fields)
+    except cards_svc.CardMergeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.delete("/{card_id}")
 def delete_card(card_id: str) -> dict:
     """Delete a CORE row with zero placements. 400 if it still has placements."""

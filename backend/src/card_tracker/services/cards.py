@@ -147,6 +147,73 @@ def set_representative(card_id: str, placement_id: str) -> dict:
     return card
 
 
+_API_TO_DB = {
+    "name": "name",
+    "set": "set_name",
+    "number": "card_number",
+    "year": "year",
+    "type": "card_type",
+    "notes": "notes",
+}
+_VALID_TYPES = {"pokemon", "sports", "other"}
+
+
+def update_metadata(card_id: str, fields: dict) -> dict:
+    """Patch user-editable metadata fields on a CORE card.
+
+    Field shape uses the API names (`set`, `number`, `type`) — not the DB column
+    names — because the frontend speaks the API shape. Internal mapping:
+      set → set_name, number → card_number, type → card_type.
+
+    Rules:
+      - String fields with empty/whitespace value are stored as NULL.
+      - `type` must be one of pokemon|sports|other when present (NULL allowed).
+      - `year` must be an int (Pydantic enforces this at the route boundary).
+      - Unspecified fields are not touched.
+
+    Raises CardMergeError on unknown card id or invalid `type`. Returns the
+    refreshed card dict (same shape as `get_card`).
+    """
+    if not fields:
+        card = get_card(card_id)
+        if card is None:
+            raise CardMergeError(f"Unknown card: {card_id}")
+        return card
+
+    if "type" in fields and fields["type"] is not None:
+        if fields["type"] not in _VALID_TYPES:
+            raise CardMergeError(
+                f"Invalid type: {fields['type']!r}. Must be one of {sorted(_VALID_TYPES)}."
+            )
+
+    sets: list[str] = []
+    params: list = []
+    for api_key, value in fields.items():
+        col = _API_TO_DB.get(api_key)
+        if col is None:
+            continue  # ignore unknown keys defensively
+        if isinstance(value, str):
+            value = value.strip() or None
+        sets.append(f"{col} = ?")
+        params.append(value)
+
+    sets.append("updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')")
+    params.append(card_id)
+
+    with transaction() as conn:
+        cur = conn.execute(
+            f"UPDATE core_card SET {', '.join(sets)} WHERE id = ?",
+            params,
+        )
+        if cur.rowcount == 0:
+            raise CardMergeError(f"Unknown card: {card_id}")
+
+    card = get_card(card_id)
+    if card is None:
+        raise CardMergeError(f"Card vanished after update: {card_id}")
+    return card
+
+
 def delete_card(card_id: str) -> None:
     """Delete a CORE row that has zero placements. Refuses if any placement
     still points at it — use `/cards/merge` for that case so the placements

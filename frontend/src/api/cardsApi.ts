@@ -65,3 +65,22 @@ export async function deleteCard(cardId: string): Promise<void> {
   });
   if (!res.ok) throw new Error(`deleteCard → ${res.status}: ${await res.text()}`);
 }
+
+export type UpdateCardFields = Partial<{
+  name: string | null;
+  set: string | null;
+  number: string | null;
+  year: number | null;
+  type: 'pokemon' | 'sports' | 'other';
+  notes: string | null;
+}>;
+
+export async function updateCard(cardId: string, fields: UpdateCardFields): Promise<CoreCard> {
+  const res = await fetch(`/api/cards/${encodeURIComponent(cardId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(fields),
+  });
+  if (!res.ok) throw new Error(`updateCard → ${res.status}: ${await res.text()}`);
+  return (await res.json()) as CoreCard;
+}

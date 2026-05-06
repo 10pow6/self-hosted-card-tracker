@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Crop, LayoutGrid, MapPin, Sparkles, Star, Trash2 } from 'lucide-react';
+import { Crop, LayoutGrid, MapPin, Pencil, Sparkles, Star, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { PlacementActions } from '@/components/PlacementActions';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { EditCardMetadataDialog } from '@/components/EditCardMetadataDialog';
 import { deleteCard, getCard, listPlacementsForCard } from '@/api/cardsApi';
 import type { CoreCard, Placement } from '@/api/types';
 
@@ -18,6 +19,7 @@ export function CardDetail() {
   const [card, setCard] = useState<CoreCard | null | undefined>(undefined);
   const [placements, setPlacements] = useState<Placement[]>([]);
   const [deleting, setDeleting] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   const refresh = useCallback(() => {
     getCard(id).then((c) => {
@@ -100,10 +102,16 @@ export function CardDetail() {
             <CardContent className="p-5 space-y-4">
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="text-sm font-semibold">Metadata</div>
-                <Button variant="outline" size="sm">
-                  <Sparkles className="size-3.5" />
-                  Enrich via agent
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" disabled title="Coming soon">
+                    <Sparkles className="size-3.5" />
+                    Enrich via agent
+                  </Button>
+                  <Button size="sm" onClick={() => setEditOpen(true)}>
+                    <Pencil className="size-3.5" />
+                    Edit
+                  </Button>
+                </div>
               </div>
               <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
                 <Field label="Name" value={card.name} />
@@ -113,10 +121,6 @@ export function CardDetail() {
                 <Field label="Type" value={card.type} />
                 <Field label="Notes" value={card.notes} />
               </dl>
-              <p className="text-xs text-muted-foreground">
-                Inline editing & agent enrichment land in a future iteration. For now, metadata is
-                manual.
-              </p>
             </CardContent>
           </Card>
 
@@ -216,6 +220,15 @@ export function CardDetail() {
           </Card>
         </div>
       </section>
+
+      {card && (
+        <EditCardMetadataDialog
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          card={card}
+          onSaved={(updated) => setCard(updated)}
+        />
+      )}
     </>
   );
 }

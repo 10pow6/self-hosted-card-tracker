@@ -84,6 +84,34 @@ def list_placements() -> list[dict]:
         ]
 
 
+def _live_similarity_vs_other_photos(
+    conn: sqlite3.Connection,
+    embedding: np.ndarray,
+    *,
+    core_card_id: str,
+    placement_id: str,
+    embedder_name: str,
+    embedder_version: str,
+) -> Optional[float]:
+    """Max cosine between `embedding` and every OTHER confirmed photo of
+    `core_card_id` (excludes the placement itself).
+
+    Returns None when the linked card has no other photos — that's an honest
+    "this placement IS the only evidence" signal, not a 100% pseudo-match.
+    """
+    rows = conn.execute(
+        "SELECT embedding FROM placement "
+        "WHERE core_card_id = ? AND id != ? AND embedding IS NOT NULL "
+        "AND embedder_name = ? AND embedder_version = ?",
+        (core_card_id, placement_id, embedder_name, embedder_version),
+    ).fetchall()
+    if not rows:
+        return None
+    matrix = np.stack([np.frombuffer(r["embedding"], dtype=np.float32) for r in rows])
+    sims = matrix @ embedding.astype(np.float32)
+    return float(sims.max())
+
+
 def _placement_dict(row: sqlite3.Row) -> dict:
     """Shape consistent with the page/cards endpoints' Placement DTO."""
     polygon = None
@@ -171,6 +199,17 @@ def get_placement(placement_id: str) -> Optional[dict]:
                     continue
                 payload.append({"core_card": core, "similarity": c.similarity})
             out["candidates"] = payload
+            # Live "evidence" similarity for the displayed match: max cosine vs.
+            # OTHER photos of the linked card. None when this placement is the
+            # only photo (the stored value would be either stale or self-vs-self).
+            if row["core_card_id"]:
+                out["similarity_score"] = _live_similarity_vs_other_photos(
+                    conn, embedding,
+                    core_card_id=row["core_card_id"],
+                    placement_id=row["id"],
+                    embedder_name=row["embedder_name"],
+                    embedder_version=row["embedder_version"],
+                )
         else:
             out["candidates"] = []
         return out
@@ -252,15 +291,13 @@ def assign_to_core(placement_id: str, core_card_id: str) -> None:
         new_sim: Optional[float] = None
         if row["embedding"] is not None:
             embedding = np.frombuffer(row["embedding"], dtype=np.float32)
-            cands = match.find_candidates(
-                conn, embedding, top_k=10,
+            new_sim = _live_similarity_vs_other_photos(
+                conn, embedding,
+                core_card_id=core_card_id,
+                placement_id=placement_id,
                 embedder_name=row["embedder_name"],
                 embedder_version=row["embedder_version"],
             )
-            for c in cands:
-                if c.core_card_id == core_card_id:
-                    new_sim = c.similarity
-                    break
         conn.execute(
             "UPDATE placement SET core_card_id = ?, review_status = 'user_confirmed', "
             "similarity_score = COALESCE(?, similarity_score), "
@@ -386,20 +423,19 @@ def refine_polygon(placement_id: str, polygon: list[list[float]]) -> dict:
     embedding_blob = embedding.astype(np.float32).tobytes()
     polygon_json = json.dumps([[float(p[0]), float(p[1])] for p in polygon])
 
-    # If the placement is linked to a core_card, recompute similarity against
-    # that card's photos so the stored value isn't stale.
+    # If the placement is linked to a core_card, stamp a live "evidence
+    # similarity" — max cosine vs. OTHER photos of that card. None when the
+    # placement is the only photo (stored as NULL → UI hides the number).
     new_sim: Optional[float] = None
     if row["core_card_id"]:
         with closing(connect()) as conn:
-            cands = match.find_candidates(
-                conn, embedding, top_k=20,
+            new_sim = _live_similarity_vs_other_photos(
+                conn, embedding,
+                core_card_id=row["core_card_id"],
+                placement_id=placement_id,
                 embedder_name=row["embedder_name"] or embedder.name,
                 embedder_version=row["embedder_version"] or embedder.version,
             )
-            for c in cands:
-                if c.core_card_id == row["core_card_id"]:
-                    new_sim = c.similarity
-                    break
 
     with transaction() as conn:
         conn.execute(

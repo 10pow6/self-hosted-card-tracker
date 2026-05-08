@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { Check, Plus, RefreshCcw, Save, Scissors, Undo2 } from 'lucide-react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Check, ExternalLink, Plus, RefreshCcw, Save, Scissors, Undo2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
 import { PolygonEditor } from '@/components/PolygonEditor';
@@ -195,13 +196,10 @@ export function PlacementRefine() {
               </div>
               {placement.core_card ? (
                 <div className="flex items-start gap-3">
-                  <div className="aspect-card w-14 rounded-md overflow-hidden bg-muted shrink-0">
-                    <img
-                      src={placement.core_card.representative_crop_url}
-                      alt=""
-                      className="size-full object-cover"
-                    />
-                  </div>
+                  <ZoomThumb
+                    src={placement.core_card.representative_crop_url}
+                    className="aspect-card w-14 rounded-md overflow-hidden bg-muted shrink-0"
+                  />
                   <div className="min-w-0">
                     <div className="text-sm font-medium truncate">
                       {placement.core_card.name ?? 'Unknown'}
@@ -212,8 +210,11 @@ export function PlacementRefine() {
                         .join(' · ') || placement.core_card.type}
                     </div>
                     {placement.similarity_score != null && (
-                      <div className="text-xs text-muted-foreground mt-1 tabular-nums">
-                        {(placement.similarity_score * 100).toFixed(0)}% similarity
+                      <div
+                        className="text-xs text-muted-foreground mt-1 tabular-nums"
+                        title="Visual similarity between this scan and the closest other placement of the same card. Higher = stronger corroborating evidence."
+                      >
+                        {(placement.similarity_score * 100).toFixed(0)}% similar to this card's other placements
                       </div>
                     )}
                   </div>
@@ -224,6 +225,14 @@ export function PlacementRefine() {
                 </div>
               )}
               <div className="grid grid-cols-1 gap-1 pt-1">
+                {placement.core_card && (
+                  <Button asChild variant="outline" size="sm">
+                    <Link to={`/cards/${placement.core_card.id}`}>
+                      <ExternalLink className="size-3.5" />
+                      View in card database
+                    </Link>
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" onClick={() => setMoveOpen(true)} disabled={busy}>
                   Move to a different card
                 </Button>
@@ -267,13 +276,10 @@ export function PlacementRefine() {
                           disabled={isCurrent || busy}
                           className="w-full text-left flex items-center gap-2 rounded-md border border-border bg-card px-2 py-2 hover:bg-muted disabled:opacity-60 disabled:cursor-default"
                         >
-                          <div className="aspect-card w-8 rounded overflow-hidden bg-muted shrink-0">
-                            <img
-                              src={c.core_card.representative_crop_url}
-                              alt=""
-                              className="size-full object-cover"
-                            />
-                          </div>
+                          <ZoomThumb
+                            src={c.core_card.representative_crop_url}
+                            className="aspect-card w-8 rounded overflow-hidden bg-muted shrink-0"
+                          />
                           <div className="flex-1 min-w-0">
                             <div className="text-xs font-medium truncate">
                               {c.core_card.name ?? 'Unknown'}
@@ -316,6 +322,25 @@ function toSlot(p: PlacementDetail): Slot {
     refined: p.polygon !== null,
     disabled: false,
   };
+}
+
+function ZoomThumb({ src, className }: { src: string; className?: string }) {
+  return (
+    <HoverCard openDelay={120} closeDelay={60}>
+      <HoverCardTrigger asChild>
+        <div className={className}>
+          <img src={src} alt="" className="size-full object-cover" />
+        </div>
+      </HoverCardTrigger>
+      <HoverCardContent side="left" className="p-1 w-auto">
+        <img
+          src={src}
+          alt=""
+          className="aspect-card w-56 rounded-md object-cover"
+        />
+      </HoverCardContent>
+    </HoverCard>
+  );
 }
 
 function defaultCellPolygon(p: PlacementDetail): [Point, Point, Point, Point] {

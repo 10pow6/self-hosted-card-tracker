@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Camera, Library, Plus } from 'lucide-react';
+import { Camera, Download, Library, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -56,12 +56,26 @@ export function BinderDetail() {
         description={`${binder.page_count} pages · ${binder.card_count} cards · ${parseLayout(binder.layout).rows}×${parseLayout(binder.layout).cols} pockets`}
         back={{ to: '/binders', label: 'Binders' }}
         actions={
-          <Button asChild>
-            <Link to={`/scan?binder=${binder.id}`}>
-              <Camera className="size-4" />
-              Scan a page
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm">
+              <a href={`/api/binders/${binder.id}/export-pages.pdf`} download>
+                <Download className="size-3.5" />
+                Export pages PDF
+              </a>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <a href={`/api/binders/${binder.id}/export-cards.pdf`} download>
+                <Download className="size-3.5" />
+                Export cards PDF
+              </a>
+            </Button>
+            <Button asChild>
+              <Link to={`/scan?binder=${binder.id}`}>
+                <Camera className="size-4" />
+                Scan a page
+              </Link>
+            </Button>
+          </div>
         }
       />
       <section className="px-4 md:px-8 pb-12">

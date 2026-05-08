@@ -13,8 +13,10 @@ import { listCards } from '@/api/cardsApi';
 import type { CardType, CoreCard } from '@/api/types';
 
 type Filter = CardType | 'all';
+type Sort = 'recent' | 'placements' | 'name';
 
 const PAGE_SIZE = 24;
+const SORTS: Sort[] = ['recent', 'placements', 'name'];
 
 export function Cards() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -24,6 +26,11 @@ export function Cards() {
   );
   const [needsMetaOnly, setNeedsMetaOnly] = useState(searchParams.get('needs') === '1');
   const [q, setQ] = useState(searchParams.get('q') ?? '');
+  const [sort, setSort] = useState<Sort>(
+    (SORTS as string[]).includes(searchParams.get('sort') ?? '')
+      ? (searchParams.get('sort') as Sort)
+      : 'recent',
+  );
   const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10) || 1);
 
   useEffect(() => {
@@ -36,15 +43,16 @@ export function Cards() {
     filter === 'all' ? next.delete('type') : next.set('type', filter);
     needsMetaOnly ? next.set('needs', '1') : next.delete('needs');
     q ? next.set('q', q) : next.delete('q');
+    sort === 'recent' ? next.delete('sort') : next.set('sort', sort);
     // Reset to page 1 when filters change.
     next.delete('page');
     setSearchParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter, needsMetaOnly, q]);
+  }, [filter, needsMetaOnly, q, sort]);
 
   const filtered = useMemo(() => {
     if (!cards) return null;
-    return cards.filter((c) => {
+    const matches = cards.filter((c) => {
       if (filter !== 'all' && c.type !== filter) return false;
       if (needsMetaOnly && !c.needs_metadata) return false;
       if (q) {
@@ -57,7 +65,18 @@ export function Cards() {
       }
       return true;
     });
-  }, [cards, filter, needsMetaOnly, q]);
+    const sorted = [...matches];
+    if (sort === 'placements') {
+      sorted.sort(
+        (a, b) =>
+          b.placement_count - a.placement_count ||
+          (a.name ?? '').localeCompare(b.name ?? ''),
+      );
+    } else if (sort === 'name') {
+      sorted.sort((a, b) => (a.name ?? '~').localeCompare(b.name ?? '~'));
+    }
+    return sorted;
+  }, [cards, filter, needsMetaOnly, q, sort]);
 
   const totalCount = filtered?.length ?? 0;
   const pageCount = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
@@ -112,6 +131,13 @@ export function Cards() {
           >
             Needs metadata
           </Button>
+          <Tabs value={sort} onValueChange={(v) => setSort(v as Sort)}>
+            <TabsList>
+              <TabsTrigger value="recent">Recent</TabsTrigger>
+              <TabsTrigger value="placements">Most placements</TabsTrigger>
+              <TabsTrigger value="name">Name</TabsTrigger>
+            </TabsList>
+          </Tabs>
           <div className="relative flex-1 min-w-48">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
             <Input

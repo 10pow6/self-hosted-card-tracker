@@ -1,12 +1,20 @@
+from datetime import datetime
 from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from card_tracker import detectors, layouts
+from card_tracker.config import settings
 from card_tracker.services import binders as binders_svc
+from card_tracker.services.export import render_binder_cards_pdf, render_binder_pages_pdf
 
 router = APIRouter(prefix="/binders", tags=["binders"])
+
+
+def _slug(name: str) -> str:
+    return "".join(c if c.isalnum() else "-" for c in name).strip("-").lower() or "binder"
 
 
 class BinderCreate(BaseModel):
@@ -54,6 +62,33 @@ def create_binder(payload: BinderCreate) -> dict:
         raise HTTPException(status_code=422, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
+
+
+@router.get("/{binder_id}/export-cards.pdf")
+def export_binder_cards(binder_id: str) -> FileResponse:
+    """Row-style PDF of every card found in this binder."""
+    binder = binders_svc.get_binder(binder_id)
+    if binder is None:
+        raise HTTPException(status_code=404, detail=f"Binder not found: {binder_id}")
+    ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    out = settings.data_dir / "exports" / f"{_slug(binder['name'])}-cards-{ts}.pdf"
+    render_binder_cards_pdf(binder_id, binder["name"], out)
+    return FileResponse(out, media_type="application/pdf", filename=out.name)
+
+
+@router.get("/{binder_id}/export-pages.pdf")
+def export_binder_pages(binder_id: str) -> FileResponse:
+    """Full-grid PDF: one PDF page per binder page, RxC cards per page."""
+    binder = binders_svc.get_binder(binder_id)
+    if binder is None:
+        raise HTTPException(status_code=404, detail=f"Binder not found: {binder_id}")
+    layout = layouts.parse(binder["layout"])
+    ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    out = settings.data_dir / "exports" / f"{_slug(binder['name'])}-pages-{ts}.pdf"
+    render_binder_pages_pdf(
+        binder_id, binder["name"], layout.canonical(), layout.rows, layout.cols, out
+    )
+    return FileResponse(out, media_type="application/pdf", filename=out.name)
 
 
 @router.get("/{binder_id}")

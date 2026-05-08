@@ -223,6 +223,19 @@ def _render_page(
     return img
 
 
+def _row_to_card_dict(r) -> dict:
+    return {
+        "id": r["id"],
+        "name": r["name"],
+        "set_name": r["set_name"],
+        "card_number": r["card_number"],
+        "year": r["year"],
+        "card_type": r["card_type"],
+        "notes": r["notes"],
+        "rep_path": r["representative_crop_path"],
+    }
+
+
 def _fetch_cards() -> list[dict]:
     sql = """
     SELECT id, name, set_name, card_number, year, card_type, notes,
@@ -237,39 +250,42 @@ def _fetch_cards() -> list[dict]:
     """
     with closing(connect()) as conn:
         rows = conn.execute(sql).fetchall()
-    return [
-        {
-            "id": r["id"],
-            "name": r["name"],
-            "set_name": r["set_name"],
-            "card_number": r["card_number"],
-            "year": r["year"],
-            "card_type": r["card_type"],
-            "notes": r["notes"],
-            "rep_path": r["representative_crop_path"],
-        }
-        for r in rows
-    ]
+    return [_row_to_card_dict(r) for r in rows]
 
 
-def render_collection_pdf(out_path: Path) -> Path:
-    """Render every CORE row to a multi-page PDF at `out_path`. Returns the path."""
-    cards = _fetch_cards()
+def _fetch_cards_for_binder(binder_id: str) -> list[dict]:
+    sql = """
+    SELECT DISTINCT c.id, c.name, c.set_name, c.card_number, c.year, c.card_type,
+           c.notes, c.representative_crop_path
+    FROM core_card c
+    JOIN placement pl ON pl.core_card_id = c.id
+    JOIN page p       ON pl.page_id = p.id
+    WHERE p.binder_id = ?
+    ORDER BY
+      CASE WHEN c.name IS NULL THEN 1 ELSE 0 END,
+      LOWER(COALESCE(c.name, '')),
+      LOWER(COALESCE(c.set_name, '')),
+      c.card_number,
+      c.created_at
+    """
+    with closing(connect()) as conn:
+        rows = conn.execute(sql, (binder_id,)).fetchall()
+    return [_row_to_card_dict(r) for r in rows]
+
+
+def _summarize(cards: list[dict]) -> dict:
     counts = {"pokemon": 0, "sports": 0, "other": 0}
     for c in cards:
         t = (c.get("card_type") or "other").lower()
         counts[t if t in counts else "other"] += 1
-    summary = {
+    return {
         "count": len(cards),
         "date": datetime.utcnow().strftime("%Y-%m-%d"),
         **counts,
     }
 
-    chunks = [cards[i : i + ROWS_PER_PAGE] for i in range(0, len(cards), ROWS_PER_PAGE)] or [[]]
-    pages = [
-        _render_page(chunk, i + 1, len(chunks), summary) for i, chunk in enumerate(chunks)
-    ]
 
+def _save_pdf(pages: list[Image.Image], out_path: Path) -> Path:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     pages[0].save(
         out_path,
@@ -279,3 +295,219 @@ def render_collection_pdf(out_path: Path) -> Path:
         resolution=150.0,
     )
     return out_path
+
+
+def _render_card_list_pdf(cards: list[dict], summary: dict, out_path: Path) -> Path:
+    chunks = [cards[i : i + ROWS_PER_PAGE] for i in range(0, len(cards), ROWS_PER_PAGE)] or [[]]
+    pages = [
+        _render_page(chunk, i + 1, len(chunks), summary) for i, chunk in enumerate(chunks)
+    ]
+    return _save_pdf(pages, out_path)
+
+
+def render_collection_pdf(out_path: Path) -> Path:
+    """Render every CORE row to a multi-page PDF at `out_path`. Returns the path."""
+    cards = _fetch_cards()
+    return _render_card_list_pdf(cards, _summarize(cards), out_path)
+
+
+def render_binder_cards_pdf(binder_id: str, binder_name: str, out_path: Path) -> Path:
+    """Render the cards belonging to one binder as a row-style multi-page PDF."""
+    cards = _fetch_cards_for_binder(binder_id)
+    summary = _summarize(cards)
+    summary["binder_name"] = binder_name
+    return _render_card_list_pdf(cards, summary, out_path)
+
+
+# ---- Binder pages PDF (one PDF page per binder page, full RxC grid) ----
+
+GRID_GAP = 18
+SLOT_CAPTION_GAP = 8
+SLOT_CAPTION_LINES = 2
+CARD_RADIUS = 12
+
+
+def _fit_card_size(cell_w: int, cell_h: int, caption_h: int) -> tuple[int, int]:
+    """Largest 63:88 card that fits inside a cell after reserving caption height."""
+    avail_h = cell_h - caption_h - SLOT_CAPTION_GAP
+    by_w_h = round(cell_w * 88 / 63)
+    if by_w_h <= avail_h:
+        return cell_w, by_w_h
+    return round(avail_h * 63 / 88), avail_h
+
+
+def _fetch_binder_pages(binder_id: str) -> list[dict]:
+    """Return one dict per binder page with the placements + linked card metadata
+    needed to render a full-grid PDF page. Empty/unmatched slots are returned as
+    placement entries with `crop_path=None` so the renderer can draw an outline.
+    """
+    pages_sql = """
+    SELECT id, page_number FROM page
+    WHERE binder_id = ?
+    ORDER BY page_number ASC
+    """
+    placements_sql = """
+    SELECT pl.slot_index, pl.crop_image_path, pl.review_status,
+           c.name, c.set_name, c.card_number, c.year
+    FROM placement pl
+    LEFT JOIN core_card c ON pl.core_card_id = c.id
+    WHERE pl.page_id = ?
+    ORDER BY pl.slot_index
+    """
+    with closing(connect()) as conn:
+        page_rows = conn.execute(pages_sql, (binder_id,)).fetchall()
+        result = []
+        for pr in page_rows:
+            slots = conn.execute(placements_sql, (pr["id"],)).fetchall()
+            result.append({
+                "page_number": pr["page_number"],
+                "placements": [
+                    {
+                        "slot_index": s["slot_index"],
+                        "crop_path": s["crop_image_path"],
+                        "review_status": s["review_status"],
+                        "name": s["name"],
+                        "set_name": s["set_name"],
+                        "card_number": s["card_number"],
+                        "year": s["year"],
+                    }
+                    for s in slots
+                ],
+            })
+    return result
+
+
+def _render_slot(
+    img: Image.Image,
+    draw: ImageDraw.ImageDraw,
+    cell_x: int,
+    cell_y: int,
+    cell_w: int,
+    cell_h: int,
+    placement: dict | None,
+) -> None:
+    caption_h = 36
+    card_w, card_h = _fit_card_size(cell_w, cell_h, caption_h)
+    card_x = cell_x + (cell_w - card_w) // 2
+    card_y = cell_y
+
+    crop = placement.get("crop_path") if placement else None
+    pasted = False
+    if crop:
+        try:
+            with Image.open(from_relative(crop)) as im:
+                img.paste(_round_thumb(im, card_w, card_h, CARD_RADIUS), (card_x, card_y))
+                pasted = True
+        except (FileNotFoundError, OSError):
+            pass
+    if not pasted:
+        draw.rounded_rectangle(
+            (card_x, card_y, card_x + card_w, card_y + card_h),
+            radius=CARD_RADIUS,
+            outline=BORDER,
+            fill=PANEL,
+            width=2,
+        )
+        empty_font = _font(14)
+        msg = "empty"
+        tw = draw.textlength(msg, font=empty_font)
+        draw.text(
+            (card_x + (card_w - tw) // 2, card_y + card_h // 2 - 8),
+            msg,
+            fill=MUTED,
+            font=empty_font,
+        )
+
+    name_font = _font(13, bold=True)
+    sub_font = _font(11)
+    cap_y = card_y + card_h + SLOT_CAPTION_GAP
+    name = (placement or {}).get("name") or ""
+    if name:
+        _draw_truncated(draw, (cell_x, cap_y), name, name_font, cell_w, FG)
+        sub_parts = [
+            (placement or {}).get("set_name"),
+            (placement or {}).get("card_number"),
+            str((placement or {}).get("year")) if (placement or {}).get("year") else None,
+        ]
+        sub = " · ".join(p for p in sub_parts if p)
+        if sub:
+            _draw_truncated(draw, (cell_x, cap_y + 16), sub, sub_font, cell_w, MUTED)
+
+
+def _render_binder_page(
+    binder_name: str,
+    layout_str: str,
+    rows: int,
+    cols: int,
+    page_data: dict,
+    page_num: int,
+    total_pages: int,
+) -> Image.Image:
+    img = Image.new("RGB", (PAGE_W, PAGE_H), BG)
+    draw = ImageDraw.Draw(img)
+
+    # Header
+    draw.text((MARGIN, MARGIN), binder_name, fill=FG, font=_font(34, bold=True))
+    sub = f"Binder · {layout_str} · Page {page_data['page_number']}"
+    draw.text((MARGIN, MARGIN + 46), sub, fill=MUTED, font=_font(16))
+    line_y = MARGIN + HEADER_H - 10
+    draw.line(((MARGIN, line_y), (PAGE_W - MARGIN, line_y)), fill=BORDER, width=2)
+
+    # Grid
+    grid_x = MARGIN
+    grid_y = MARGIN + HEADER_H + 10
+    grid_w = PAGE_W - 2 * MARGIN
+    grid_h = PAGE_H - grid_y - MARGIN - FOOTER_H
+    cell_w = (grid_w - GRID_GAP * (cols - 1)) // cols
+    cell_h = (grid_h - GRID_GAP * (rows - 1)) // rows
+
+    by_index = {p["slot_index"]: p for p in page_data["placements"]}
+    for slot in range(rows * cols):
+        r, c = divmod(slot, cols)
+        cx = grid_x + c * (cell_w + GRID_GAP)
+        cy = grid_y + r * (cell_h + GRID_GAP)
+        _render_slot(img, draw, cx, cy, cell_w, cell_h, by_index.get(slot))
+
+    # Footer
+    foot_font = _font(13)
+    foot_y = PAGE_H - MARGIN - 18
+    draw.text((MARGIN, foot_y), "Generated by 10pow6 Card Tracker", fill=MUTED, font=foot_font)
+    page_text = f"Page {page_num} / {total_pages}"
+    draw.text(
+        (PAGE_W - MARGIN - draw.textlength(page_text, font=foot_font), foot_y),
+        page_text,
+        fill=MUTED,
+        font=foot_font,
+    )
+    return img
+
+
+def render_binder_pages_pdf(
+    binder_id: str,
+    binder_name: str,
+    layout_str: str,
+    rows: int,
+    cols: int,
+    out_path: Path,
+) -> Path:
+    """Render each binder page as a full RxC card grid, one PDF page per binder page."""
+    page_data = _fetch_binder_pages(binder_id)
+    if not page_data:
+        # Single empty page so the file is still valid.
+        img = Image.new("RGB", (PAGE_W, PAGE_H), BG)
+        draw = ImageDraw.Draw(img)
+        draw.text((MARGIN, MARGIN), binder_name, fill=FG, font=_font(34, bold=True))
+        draw.text(
+            (MARGIN, MARGIN + 60),
+            "No pages scanned yet.",
+            fill=MUTED,
+            font=_font(18),
+        )
+        return _save_pdf([img], out_path)
+
+    total = len(page_data)
+    images = [
+        _render_binder_page(binder_name, layout_str, rows, cols, pd, i + 1, total)
+        for i, pd in enumerate(page_data)
+    ]
+    return _save_pdf(images, out_path)

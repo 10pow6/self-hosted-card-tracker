@@ -208,6 +208,7 @@ export type DashboardStats = {
   binders: number;
   pages: number;
   core_cards: number;
+  total_cards: number;
   pending_review: number;
 };
 

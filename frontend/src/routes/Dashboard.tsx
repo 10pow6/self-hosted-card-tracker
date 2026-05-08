@@ -4,6 +4,7 @@ import {
   ArrowRight,
   Camera,
   Inbox,
+  Layers,
   LayoutGrid,
   Library,
   Sparkles,
@@ -44,12 +45,23 @@ export function Dashboard() {
         }
         description="A self-hosted home for every card in every binder. Scan a page, resolve matches, and keep your card database tidy."
       />
-      <section className="px-4 md:px-8 grid gap-3 grid-cols-2 lg:grid-cols-4">
+      <section className="px-4 md:px-8 grid gap-3 grid-cols-2 lg:grid-cols-5">
         {stats ? (
           <>
             <StatCard icon={Library} label="Binders" value={stats.binders} tone="accent" />
             <StatCard icon={Camera} label="Pages scanned" value={stats.pages} />
-            <StatCard icon={LayoutGrid} label="Card database" value={stats.core_cards} />
+            <StatCard
+              icon={LayoutGrid}
+              label="Unique cards"
+              value={stats.core_cards}
+              hint="distinct cards in your database"
+            />
+            <StatCard
+              icon={Layers}
+              label="Total cards"
+              value={stats.total_cards}
+              hint="cards across all binders (incl. duplicates)"
+            />
             <StatCard
               icon={Inbox}
               label="Pending review"
@@ -59,7 +71,7 @@ export function Dashboard() {
             />
           </>
         ) : (
-          Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)
+          Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)
         )}
       </section>
 

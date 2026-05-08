@@ -9,6 +9,9 @@ def get_stats() -> dict:
         binders = conn.execute("SELECT COUNT(*) AS n FROM binder").fetchone()["n"]
         pages = conn.execute("SELECT COUNT(*) AS n FROM page").fetchone()["n"]
         cards = conn.execute("SELECT COUNT(*) AS n FROM core_card").fetchone()["n"]
+        total_cards = conn.execute(
+            "SELECT COUNT(*) AS n FROM placement WHERE review_status != 'empty'"
+        ).fetchone()["n"]
         pending = conn.execute(
             "SELECT COUNT(*) AS n FROM placement WHERE review_status = 'pending'"
         ).fetchone()["n"]
@@ -16,6 +19,7 @@ def get_stats() -> dict:
             "binders": int(binders),
             "pages": int(pages),
             "core_cards": int(cards),
+            "total_cards": int(total_cards),
             "pending_review": int(pending),
         }
 

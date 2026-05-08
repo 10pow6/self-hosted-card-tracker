@@ -187,15 +187,15 @@ function QuickAction({
   accent?: boolean;
 }) {
   return (
-    <Link to={to} className="group focus:outline-none">
+    <Link to={to} className="group focus:outline-none h-full">
       <Card
         className={
           accent
-            ? 'overflow-hidden border-primary/40 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent transition-all group-hover:border-primary group-hover:-translate-y-0.5'
-            : 'overflow-hidden transition-all group-hover:border-primary/60 group-hover:-translate-y-0.5'
+            ? 'h-full overflow-hidden border-primary/40 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent transition-all group-hover:border-primary group-hover:-translate-y-0.5'
+            : 'h-full overflow-hidden transition-all group-hover:border-primary/60 group-hover:-translate-y-0.5'
         }
       >
-        <CardContent className="p-5">
+        <CardContent className="p-5 h-full">
           <div className="flex items-start gap-4">
             <div className="size-10 rounded-lg bg-background/60 backdrop-blur grid place-items-center border border-border">
               <Icon className="size-5" />

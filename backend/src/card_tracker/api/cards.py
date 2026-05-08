@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from card_tracker.config import settings
 from card_tracker.services import cards as cards_svc
+from card_tracker.services import enrich as enrich_svc
 from card_tracker.services.export import render_collection_pdf
 
 router = APIRouter(prefix="/cards", tags=["cards"])
@@ -94,6 +95,35 @@ def update_card(card_id: str, payload: UpdateCardPayload) -> dict:
     try:
         return cards_svc.update_metadata(card_id, fields)
     except cards_svc.CardMergeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+class EnrichPayload(BaseModel):
+    name: Optional[str] = None
+    set: Optional[str] = None
+    number: Optional[str] = None
+    year: Optional[int] = None
+    type: Optional[str] = None
+    notes: Optional[str] = None
+    confidence: float
+    source_url: Optional[str] = None
+    model_config = {"extra": "forbid"}
+
+
+@router.post("/{card_id}/enrich")
+def enrich_card(card_id: str, payload: EnrichPayload) -> dict:
+    """Apply a Claude-Code-skill metadata suggestion. Server enforces the
+    high-confidence rule for `number` (see services.enrich).
+    """
+    cfg = enrich_svc.get_settings()
+    if not cfg["enabled"]:
+        raise HTTPException(
+            status_code=403,
+            detail="Enrichment is disabled. Enable it in Settings → Metadata enrichment.",
+        )
+    try:
+        return enrich_svc.apply_enrichment(card_id, payload.model_dump(exclude_unset=True))
+    except enrich_svc.EnrichmentError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 

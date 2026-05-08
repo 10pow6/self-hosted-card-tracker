@@ -59,6 +59,8 @@ export type CommitResponse = {
 
 export type CardType = 'pokemon' | 'sports' | 'other';
 
+export type MetadataSource = 'manual' | 'claude-skill' | null;
+
 export type CoreCard = {
   id: string;
   name: string | null;
@@ -71,6 +73,8 @@ export type CoreCard = {
   embedder_name: string;
   embedder_version: string;
   placement_count: number;
+  metadata_confidence: number | null;
+  metadata_source: MetadataSource;
   needs_metadata: boolean;
   created_at: string;
 };

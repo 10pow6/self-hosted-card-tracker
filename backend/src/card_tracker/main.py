@@ -6,6 +6,7 @@ from card_tracker.api import (
     binders,
     cards,
     dashboard,
+    enrich,
     pages,
     placements,
     review,
@@ -13,8 +14,11 @@ from card_tracker.api import (
     settings as settings_api,
 )
 from card_tracker.config import settings
+from card_tracker.db.engine import init_db
 
 app = FastAPI(title="Card Tracker", version="0.1.0")
+
+init_db()
 
 app.add_middleware(
     CORSMiddleware,
@@ -31,6 +35,7 @@ app.mount("/data", StaticFiles(directory=settings.data_dir), name="data")
 app.include_router(binders.router, prefix="/api")
 app.include_router(cards.router, prefix="/api")
 app.include_router(dashboard.router, prefix="/api")
+app.include_router(enrich.router, prefix="/api")
 app.include_router(pages.router, prefix="/api")
 app.include_router(placements.router, prefix="/api")
 app.include_router(review.router, prefix="/api")

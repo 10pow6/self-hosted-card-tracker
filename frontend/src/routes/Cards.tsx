@@ -13,10 +13,10 @@ import { listCards } from '@/api/cardsApi';
 import type { CardType, CoreCard } from '@/api/types';
 
 type Filter = CardType | 'all';
-type Sort = 'recent' | 'placements' | 'name';
+type Sort = 'recent' | 'placements' | 'name' | 'confidence';
 
 const PAGE_SIZE = 24;
-const SORTS: Sort[] = ['recent', 'placements', 'name'];
+const SORTS: Sort[] = ['recent', 'placements', 'name', 'confidence'];
 
 export function Cards() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -74,6 +74,17 @@ export function Cards() {
       );
     } else if (sort === 'name') {
       sorted.sort((a, b) => (a.name ?? '~').localeCompare(b.name ?? '~'));
+    } else if (sort === 'confidence') {
+      // AI-enriched cards sorted by lowest confidence first (these need review).
+      // Manual / unenriched rows sink to the bottom — there's nothing to review.
+      sorted.sort((a, b) => {
+        const aIsAi = a.metadata_source === 'claude-skill' && a.metadata_confidence != null;
+        const bIsAi = b.metadata_source === 'claude-skill' && b.metadata_confidence != null;
+        if (aIsAi && !bIsAi) return -1;
+        if (!aIsAi && bIsAi) return 1;
+        if (!aIsAi && !bIsAi) return 0;
+        return (a.metadata_confidence ?? 1) - (b.metadata_confidence ?? 1);
+      });
     }
     return sorted;
   }, [cards, filter, needsMetaOnly, q, sort]);
@@ -136,6 +147,7 @@ export function Cards() {
               <TabsTrigger value="recent">Recent</TabsTrigger>
               <TabsTrigger value="placements">Most placements</TabsTrigger>
               <TabsTrigger value="name">Name</TabsTrigger>
+              <TabsTrigger value="confidence">AI confidence</TabsTrigger>
             </TabsList>
           </Tabs>
           <div className="relative flex-1 min-w-48">

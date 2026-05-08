@@ -19,6 +19,27 @@ def connect(db_path: Path | None = None) -> sqlite3.Connection:
 def init_db(db_path: Path | None = None) -> None:
     with connect(db_path) as conn:
         conn.executescript(SCHEMA_PATH.read_text())
+        _migrate_columns(conn)
+
+
+_REQUIRED_COLUMNS: dict[str, list[tuple[str, str]]] = {
+    "core_card": [
+        ("metadata_confidence", "REAL"),
+        ("metadata_source", "TEXT"),
+    ],
+}
+
+
+def _migrate_columns(conn: sqlite3.Connection) -> None:
+    """Idempotently add columns that newer code expects but old DBs lack.
+    SQLite has no `ADD COLUMN IF NOT EXISTS`, so we read pragma_table_info first.
+    """
+    for table, cols in _REQUIRED_COLUMNS.items():
+        existing = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+        for col_name, col_type in cols:
+            if col_name not in existing:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}")
+        conn.commit()
 
 
 @contextmanager

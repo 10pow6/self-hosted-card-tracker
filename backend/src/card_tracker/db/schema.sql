@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS core_card (
     year                     INTEGER,
     card_type                TEXT,
     notes                    TEXT,
+    metadata_confidence      REAL,
+    metadata_source          TEXT,  -- 'manual' | 'claude-skill' (NULL = never enriched)
     created_at               TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
     updated_at               TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );

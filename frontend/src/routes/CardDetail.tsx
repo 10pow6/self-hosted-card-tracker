@@ -91,6 +91,15 @@ export function CardDetail() {
                 needs metadata
               </Badge>
             )}
+            {card.metadata_source === 'claude-skill' && card.metadata_confidence != null && (
+              <Badge
+                className="bg-primary/15 text-primary"
+                title="Filled in by the Claude Code enrichment skill. Edit the metadata to override and mark it as manual."
+              >
+                <Sparkles className="size-3" />
+                AI · {Math.round(card.metadata_confidence * 100)}% confident
+              </Badge>
+            )}
             <span className="text-xs text-muted-foreground">
               {card.embedder_name} · {card.embedder_version}
             </span>

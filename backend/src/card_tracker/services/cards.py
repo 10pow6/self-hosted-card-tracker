@@ -27,6 +27,8 @@ def _card_dict(conn: sqlite3.Connection, row: sqlite3.Row) -> dict:
         "embedder_name": row["embedder_name"],
         "embedder_version": row["embedder_version"],
         "placement_count": int(placement_count),
+        "metadata_confidence": row["metadata_confidence"],
+        "metadata_source": row["metadata_source"],
         "needs_metadata": not (name and name.strip()),
         "created_at": row["created_at"],
     }
@@ -197,6 +199,10 @@ def update_metadata(card_id: str, fields: dict) -> dict:
         sets.append(f"{col} = ?")
         params.append(value)
 
+    # A manual edit invalidates any prior AI enrichment confidence — flip the
+    # source to 'manual' and clear the score. The user is the source of truth now.
+    sets.append("metadata_source = 'manual'")
+    sets.append("metadata_confidence = NULL")
     sets.append("updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')")
     params.append(card_id)
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/PageHeader';
 import { ModelSlotCard } from '@/components/ModelSlotCard';
+import { EnrichmentSettingsPanel } from '@/components/EnrichmentSettings';
 import { getModelSlots, setActiveOption } from '@/api/settingsApi';
 import type { ModelSlot } from '@/api/types';
 
@@ -29,6 +30,8 @@ export function Settings() {
         {slots === null
           ? Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-64 rounded-xl" />)
           : slots.map((s) => <ModelSlotCard key={s.id} slot={s} onChange={onChange} />)}
+
+        <EnrichmentSettingsPanel />
 
         <div className="rounded-xl border border-border bg-muted/20 p-4 text-xs text-muted-foreground leading-relaxed">
           All scoring and matching runs locally by default. The only network call is a one-time

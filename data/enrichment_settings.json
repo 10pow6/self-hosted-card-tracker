@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "allowlist": [
+    "tcdb.com",
+    "beckett.com",
+    "comc.com",
+    "psacard.com",
+    "bulbapedia.bulbagarden.net",
+    "pokellector.com",
+    "pkmncards.com",
+    "wikipedia.org"
+  ]
+}

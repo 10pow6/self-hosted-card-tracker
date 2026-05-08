@@ -3,6 +3,7 @@ import { Download, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 
 type EnrichmentSettings = {
   enabled: boolean;
@@ -86,35 +87,27 @@ export function EnrichmentSettingsPanel() {
               accepted at ≥95% confidence. Manual edits override and clear the AI flag.
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={state.enabled}
+            aria-label="Enable Claude Code enrichment skill"
+            disabled={busy}
+            onClick={() => onToggle(!state.enabled)}
+            className={cn(
+              'inline-flex shrink-0 items-center h-6 w-11 rounded-full p-0.5 transition-colors',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+              'disabled:cursor-not-allowed disabled:opacity-50',
+              state.enabled ? 'bg-primary' : 'bg-muted border border-border',
+            )}
+          >
             <span
-              className={
-                'text-sm font-medium tabular-nums ' +
-                (state.enabled ? 'text-primary' : 'text-muted-foreground')
-              }
-            >
-              {state.enabled ? 'On' : 'Off'}
-            </span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={state.enabled}
-              aria-label="Enable Claude Code enrichment skill"
-              disabled={busy}
-              onClick={() => onToggle(!state.enabled)}
-              className={
-                'relative h-6 w-11 rounded-full transition-colors disabled:opacity-50 ' +
-                (state.enabled ? 'bg-primary' : 'bg-muted border border-border')
-              }
-            >
-              <span
-                className={
-                  'absolute top-0.5 size-5 rounded-full bg-white shadow transition-transform ' +
-                  (state.enabled ? 'translate-x-5' : 'translate-x-0.5')
-                }
-              />
-            </button>
-          </div>
+              className={cn(
+                'block size-5 rounded-full bg-white shadow-sm transition-transform',
+                state.enabled ? 'translate-x-5' : 'translate-x-0',
+              )}
+            />
+          </button>
         </div>
 
         <div>

@@ -135,10 +135,8 @@ export function EnrichmentSettingsPanel() {
         <div className="border-t border-border pt-4">
           <div className="text-sm font-medium">Download the skill</div>
           <div className="text-xs text-muted-foreground mt-1 leading-relaxed">
-            Save the file to{' '}
-            <code className="text-foreground">.claude/skills/enrich-cards.md</code>{' '}
-            in this project. The allowlist above is baked into the file at
-            download time — re-download after editing it.
+            The allowlist above is baked into the file at download time —
+            re-download after editing it.
           </div>
           <div className="mt-3">
             <Button asChild variant="outline" size="sm">
@@ -147,6 +145,30 @@ export function EnrichmentSettingsPanel() {
                 Download enrich-cards.md
               </a>
             </Button>
+          </div>
+
+          <div className="mt-4 text-xs text-muted-foreground leading-relaxed">
+            <div className="font-medium text-foreground mb-1">Then, to run it:</div>
+            <ol className="list-decimal list-inside space-y-1">
+              <li>
+                Save the file to{' '}
+                <code className="text-foreground">.claude/skills/enrich-cards.md</code>{' '}
+                inside any project directory.
+              </li>
+              <li>
+                Run <code className="text-foreground">claude</code> in that
+                project's terminal.
+              </li>
+              <li>
+                Type <code className="text-foreground">/enrich-cards</code> (or
+                say "enrich my cards, limit 10").
+              </li>
+            </ol>
+            <div className="mt-2">
+              The backend must be running at{' '}
+              <code className="text-foreground">http://localhost:8000</code>{' '}
+              (the URL baked into the skill) and this toggle must be on.
+            </div>
           </div>
         </div>
 

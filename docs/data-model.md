@@ -14,10 +14,12 @@ The "CORE" table. One row per distinct printed card across the entire collection
 | `embedder_name`, `embedder_version` | Pinned per row so we never compare embeddings produced by different models. |
 | `embedding` | `BLOB` — float32 bytes, L2-normalized, length = `dim` of the embedder. |
 | `representative_crop_path` | DB-relative path (e.g. `crops/<scan>/slot_3.jpg`). |
-| `name`, `set_name`, `card_number`, `year`, `card_type`, `notes` | All NULL-able — manual entry for now. |
+| `name`, `set_name`, `card_number`, `year`, `card_type`, `notes` | All NULL-able. Filled in via the Edit dialog or the Claude-skill enricher — see [enrichment.md](enrichment.md). |
+| `metadata_confidence` | `REAL` in `[0, 1]`, or NULL. Set when metadata came from the Claude skill; cleared when the user manually edits. |
+| `metadata_source` | `'manual'` or `'claude-skill'`. NULL = never enriched. |
 | `created_at`, `updated_at` | ISO 8601 UTC. |
 
-A row is **"unenriched"** when `name IS NULL` — surfaced in the UI as "needs metadata".
+A row is **"unenriched"** when `name IS NULL` — surfaced in the UI as "needs metadata" and used as the queue source by `GET /api/enrich/next`.
 
 ### `binder` — physical binder
 

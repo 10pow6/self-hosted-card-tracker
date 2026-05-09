@@ -15,10 +15,14 @@ High-level layers and where things live. For details on each topic, follow the c
 ┌──────────────────────────────────▼─────────────────────────────────┐
 │  Backend (FastAPI on Python 3.11+)                                 │
 │   ├── api/           thin routers (binders, cards, pages, review,  │
-│   │                  scans, dashboard, settings)                   │
+│   │                  scans, dashboard, settings, enrich,           │
+│   │                  placements)                                   │
 │   ├── services/      business logic (binders, ingest, review,      │
-│   │                  cards, pages, dashboard, settings_svc, match) │
+│   │                  cards, pages, dashboard, settings_svc, match, │
+│   │                  placements, enrich, export)                   │
 │   ├── cv/grid.py     page bbox + per-cell card refinement          │
+│   ├── detectors.py   detector registry + per-binder config schema  │
+│   ├── matchers.py    pluggable matching strategies                 │
 │   ├── embeddings/    DINOv2-small wrapper (lazy singleton)         │
 │   └── db/            SQLite schema + connection helpers            │
 └──────────────────────────────────┬─────────────────────────────────┘

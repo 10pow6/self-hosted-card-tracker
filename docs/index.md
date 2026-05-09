@@ -13,6 +13,8 @@ Project-internal reference. For the project pitch, screenshots, and quickstart s
 | Embeddings & similarity (DINOv2, thresholds) | [embeddings.md](embeddings.md) |
 | Review queue (states, defer, shortcuts) | [review-queue.md](review-queue.md) |
 | Placement management (refine, move, promote, unmatch) | [placement-management.md](placement-management.md) |
+| Metadata enrichment (Claude Code skill, allowlist, confidence rules) | [enrichment.md](enrichment.md) |
+| PDF exports (collection, binder cards, binder pages) | [export.md](export.md) |
 | Binder layouts (RxC parsing, supported sizes) | [layouts.md](layouts.md) |
 | HTTP API reference | [api.md](api.md) |
 | Install + first run | [setup.md](setup.md) |
@@ -25,5 +27,7 @@ Project-internal reference. For the project pitch, screenshots, and quickstart s
 - CV threshold or algorithm change → [detection.md](detection.md).
 - New embedder or matching tweak → [embeddings.md](embeddings.md).
 - New layout dimensions → [layouts.md](layouts.md).
+- Enrichment guardrails / allowlist / skill template change → [enrichment.md](enrichment.md).
+- PDF format / endpoint / page layout change → [export.md](export.md).
 - Installation step or environment change → [setup.md](setup.md).
 - Any new failure mode you've actually hit → [troubleshooting.md](troubleshooting.md).

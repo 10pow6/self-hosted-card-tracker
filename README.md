@@ -27,6 +27,8 @@ If you store cards in binders, every "where did I put my Charizard?" devolves in
 
 **Card Tracker is type-agnostic, fully self-hosted, and offline by default.** Point your phone camera at a binder page; the app parses each pocket and tracks every card back to its physical location (binder → page → slot). The only network call in normal use is a one-time download of the local vision model on first run.
 
+![Dashboard — your collection at a glance: binders, pages scanned, unique cards, total cards, pending review.](screenshots/dashboard.png)
+
 ## How it works
 
 1. **Capture.** Photograph or upload a binder page in any layout from 1×1 (toploader) up to 4×4 (16 pockets).
@@ -37,6 +39,50 @@ If you store cards in binders, every "where did I put my Charizard?" devolves in
 
 Every step runs locally on your machine. No accounts, no cloud, no per-card API quotas.
 
+### Scan into a binder
+
+Pick the binder you're scanning into, or spin up a new one — name it, choose a layout, optionally tweak detection parameters, and start firing pages at it.
+
+![Scan-into-a-binder picker — a tile per binder, plus a "New binder" tile.](screenshots/scan-to-new-binder.png)
+
+![Create-binder dialog — name, layout grid (1×1 through 4×4), and an advanced detection-tuning panel.](screenshots/create-binder.png)
+
+### Adjust the detector's boxes
+
+OpenCV pre-fills a polygon around each card; you drag corners to fix any it missed and mark deliberately-empty pockets. The right-rail shows the current match plus the top-3 candidates from your database — confirm, move, promote, or send to the review queue without leaving the page.
+
+![Edge-refinement view — source page on the left with draggable card polygons, current match + top-3 candidates on the right.](screenshots/edge-refinement.png)
+
+### Resolve ambiguous matches
+
+Anything the embedder isn't confident about lands in the **Work queue**: each pending placement side-by-side with its top candidates. Keyboard shortcuts (`1/2/3` pick, `y` confirm, `+` new card, `d` defer) make it fast.
+
+![Work queue — placement on the left, top candidates from the database on the right, with confirm / pick-from-DB / new-card / defer actions.](screenshots/similarity-matching-on-scan.png)
+
+![Empty work queue — nothing pending right now.](screenshots/card-scan-work-queue.png)
+
+### Browse your collection
+
+Three lenses on the same data:
+
+- **Card database** — every distinct CORE row, filterable by type and metadata state. Export the whole thing to a printable, Discord-shareable PDF in one click.
+- **Collection** — every physical card across every binder, duplicates included; click through to inspect or refine the placement.
+- **Binders** — drill into a binder, see each page as a populated grid, export a per-page PDF for sharing.
+
+![Card database — distinct CORE rows with filter pills and an "Export PDF" button.](screenshots/card-database.png)
+
+![Your collection — every physical placement listed, with refine / page / card actions.](screenshots/all-cards-collection.png)
+
+![Binder detail — pages laid out with their populated card grids.](screenshots/binder-collection.png)
+
+### Enrich metadata locally with Claude Code
+
+Each card has editable metadata (name, set, year, type, notes). For unenriched cards you can run the bundled **Claude Code skill** locally: it pulls a batch via the API, identifies each card from its representative crop, optionally web-searches an allowlisted source you control, and posts back suggestions. Card numbers are only accepted at ≥95% confidence, and manual edits override and clear the AI flag. Nothing leaves your machine without your domain allowlist permitting it.
+
+![Card metadata view — editable name/set/year/type/notes plus an "Enrich via agent" affordance.](screenshots/card-metadata.png)
+
+![Settings → model slots — page detection, embedding, matching, metadata enrichment, plus stub slots for future MCP integrations.](screenshots/ready-to-be-extended.png)
+
 ## Features
 
 - 📦 **Physical-location tracking** — binders → pages → slots, every placement linked to a canonical card identity.
@@ -44,6 +90,9 @@ Every step runs locally on your machine. No accounts, no cloud, no per-card API 
 - 📐 **Configurable layouts** — 1×1, 2×2, 3×3 (default), 3×4, 4×3, 4×4. Per-binder.
 - 📱 **Mobile-first capture** — phone goes straight to the camera (Android) or "Take Photo" sheet (iOS).
 - ✅ **Human-in-the-loop review queue** — keyboard shortcuts, defer/un-defer for ambiguous matches.
+- 🛠️ **Placement repair tools** — refine polygons, move cards between identities, promote to new, send back to review.
+- ✏️ **Editable metadata** — manual edit-in-place, plus an opt-in Claude Code skill that proposes metadata for unenriched cards using your own allowlisted web sources.
+- 📄 **PDF export** — one-click export of your full database, a single binder's cards, or a binder's per-page grid layout. Discord-shareable.
 - 🧩 **Pluggable model slots** — swap detection / embedding / metadata-enrichment models in the future without UI changes.
 - 🤝 **Forward-looking integrations** — placeholders for MCP servers and external agents to enrich card metadata.
 - 🛡️ **Offline-first** — no third-party API keys required. The model weights download once.
@@ -156,17 +205,20 @@ self-hosted-card-tracker/
 │       ├── components/         Domain + UI components
 │       ├── api/                Typed API clients
 │       └── lib/layout.ts       Frontend layout helpers
-├── data/                       Created on first run (SQLite + crops + scans + models)
-├── docs/
-│   ├── architecture.md         Data model + ingest pipeline + thresholds
-│   └── setup.md                Same setup as here, with environment notes
+├── data/                       Created on first run (SQLite + crops + scans + models + exports)
+├── docs/                       Per-topic reference (architecture, data model, API, …)
 └── sample_images/              Test images for the scan flow
 ```
 
 ## Further reading
 
-- [docs/architecture.md](docs/architecture.md) — data model, ingest pipeline, similarity thresholds, embedder identity.
-- [docs/setup.md](docs/setup.md) — setup instructions with extra environment notes.
+- [docs/index.md](docs/index.md) — full doc map.
+- [docs/architecture.md](docs/architecture.md) — system layers, storage conventions, constraints.
+- [docs/data-model.md](docs/data-model.md) — schema and identity rules.
+- [docs/api.md](docs/api.md) — every HTTP endpoint.
+- [docs/enrichment.md](docs/enrichment.md) — Claude Code metadata-enrichment skill.
+- [docs/export.md](docs/export.md) — PDF export formats.
+- [docs/setup.md](docs/setup.md) — setup with extra environment notes.
 
 ## License
 

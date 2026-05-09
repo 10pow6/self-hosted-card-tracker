@@ -18,6 +18,8 @@ All bodies are JSON unless noted. All `*_at` timestamps are ISO 8601 UTC (`YYYY-
 | GET | `/api/binders/detectors` | — | Catalog of detectors available for binder creation: `[{id, label, description, fields:[{key, default, min, max}]}]`. Mirrors `frontend/src/lib/detectors.ts`. |
 | POST | `/api/binders` | `{name, layout?, detector?, detector_config?}` | `Binder` (201). `detector` defaults to `'opencv-grid-v1'`; `detector_config` keys are validated against the chosen detector's schema. Invalid → 422. |
 | GET | `/api/binders/{binder_id}` | — | `Binder` or 404. |
+| GET | `/api/binders/{binder_id}/export-cards.pdf` | — | Row-style PDF of every card linked to this binder. 404 if binder missing. See [export.md](export.md). |
+| GET | `/api/binders/{binder_id}/export-pages.pdf` | — | Full-grid PDF: one PDF page per binder page, RxC slots drawn with each card's crop. 404 if binder missing. |
 
 ## Pages
 
@@ -31,10 +33,14 @@ All bodies are JSON unless noted. All `*_at` timestamps are ISO 8601 UTC (`YYYY-
 | Method | Path | Body / Query | Returns |
 |---|---|---|---|
 | GET | `/api/cards` | `?type=&needs_metadata=&q=` | `CoreCard[]` (full filtered list — pagination is client-side). |
+| GET | `/api/cards/export.pdf` | — | Multi-page PDF of every CORE row, row-style. See [export.md](export.md). |
 | GET | `/api/cards/{card_id}` | — | `CoreCard` or 404. |
 | GET | `/api/cards/{card_id}/placements` | — | `Placement[]`. |
+| PATCH | `/api/cards/{card_id}` | `{name?, set?, number?, year?, type?, notes?}` (extras forbidden) | Updated `CoreCard`. Manual partial edit — only fields present are touched. Empty/whitespace strings stored as NULL. Sets `metadata_source = 'manual'`, clears `metadata_confidence`. |
+| DELETE | `/api/cards/{card_id}` | — | `{deleted: card_id}`. 400 if the card still has placements. |
 | POST | `/api/cards/{source_id}/merge` | `{target_id}` | `{target: CoreCard, moved_placements}`. Repoints all placements of `source_id` to `target_id`, then deletes the source. 400 on self-merge or unknown id. |
 | POST | `/api/cards/{card_id}/representative` | `{placement_id}` | Updated `CoreCard`. Sets `representative_crop_path` to that placement's crop. Validates the placement is linked to this card and has a crop. 400 on bad input. |
+| POST | `/api/cards/{card_id}/enrich` | `{name?, set?, number?, year?, type?, notes?, confidence, source_url?}` | Apply a Claude-skill suggestion. **403 when enrichment is disabled** in Settings. Server-side guardrails (confidence range, type whitelist, drop `number` when confidence < 0.95). See [enrichment.md](enrichment.md). |
 
 ## Scans
 
@@ -78,6 +84,17 @@ Per-placement actions for fixing mistakes (bad merge, wrong auto-match) or impro
 |---|---|---|---|
 | GET | `/api/settings/model-slots` | — | `ModelSlot[]` — detection / embeddings / metadata catalogs. Active option pinned by `config.py`. |
 | POST | `/api/settings/model-slots/{slot_id}/active` | `{option_id}` | **501** — runtime swapping not supported in v1. Edit `config.py` and restart instead. |
+
+## Enrichment
+
+User-toggleable Claude Code metadata-enrichment skill. Full feature doc: [enrichment.md](enrichment.md).
+
+| Method | Path | Body / Query | Returns |
+|---|---|---|---|
+| GET | `/api/enrich/settings` | — | `{enabled: bool, allowlist: string[]}`. |
+| PUT | `/api/enrich/settings` | `{enabled?, allowlist?}` (extras forbidden) | Updated settings (partial merge). Persisted to `data/enrichment_settings.json`. |
+| GET | `/api/enrich/next` | `?limit=N` (1–50, default 10) | `[{id, name, set, number, year, type, notes, representative_crop_url, metadata_confidence, metadata_source}]` — cards still missing `name`, oldest-first. **403 when `enabled=false`**. |
+| GET | `/api/enrich/skill.md` | — | `text/plain` rendering of the project-scope Claude Code skill with the current allowlist baked in. The user drops it at `<project>/.claude/skills/enrich-cards.md`. |
 
 ## Static assets
 

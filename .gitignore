@@ -118,9 +118,11 @@ temp/
 data/scans/*
 data/crops/*
 data/models/*
+data/exports/*
 !data/scans/.gitkeep
 !data/crops/.gitkeep
 !data/models/.gitkeep
+!data/exports/.gitkeep
 data/*.db
 data/*.db-journal
 data/*.db-wal

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { ArrowRight, MoreHorizontal, Plus, Scissors, Sparkles, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {

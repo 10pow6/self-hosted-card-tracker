@@ -52,9 +52,9 @@ Failure modes that have actually been hit. Add new entries here when you find a 
 
 **Symptom**: 4×4 binder scans show many `refined: false` slots; the user has to drag every box manually.
 
-**Cause**: `MIN_CELL_FILL` (0.30) and `MIN_HULL_FILL` (0.70) in [`cv/grid.py`](../backend/src/card_tracker/cv/grid.py) were tuned for 3×3 cell sizes. Smaller cells fail those thresholds.
+**Cause**: the default detection thresholds (`min_cell_fill` 0.30, `min_hull_fill` 0.70) were tuned for 3×3 cell sizes. Smaller cells fail them.
 
-**Workaround**: drag boxes manually before commit (the polygon editor doesn't care whether boxes were auto-detected or not). Tuning per-layout thresholds is on the follow-up list.
+**Fix**: the thresholds are tunable per binder via `binder.detector_config` — the create-binder dialog's **Advanced detection tuning** panel. Lower `min_cell_fill` (e.g. to 0.15) for dense layouts. See [detection.md](detection.md#per-binder-tunable-thresholds-detectionconfig). You can also always drag the boxes manually before commit — the polygon editor doesn't care whether boxes were auto-detected.
 
 ## "Page X already exists in binder Y"
 

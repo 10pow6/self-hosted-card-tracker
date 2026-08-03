@@ -5,7 +5,7 @@ The top-level [README.md](../README.md) has the same instructions in marketing-f
 ## Prerequisites
 
 - Python **3.11+** (3.13 tested).
-- Node **20.19+** or **22.12+** (Vite 8 requirement).
+- Node **22.22+** (22.x LTS). react-router 8 declares `engines.node >= 22.22.0`, so `yarn install` hard-fails on older Nodes (Vite 8 alone would accept 20.19+/22.12+).
 - **Yarn classic** (v1) — install with npm once Node is present:
 
   ```bash
@@ -30,6 +30,16 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 python scripts/init_db.py
+```
+
+### Windows (Command Prompt)
+
+```cmd
+cd backend
+python -m venv .venv
+.venv\Scripts\activate.bat
+pip install -e ".[dev]"
+python scripts\init_db.py
 ```
 
 ### Windows (PowerShell)

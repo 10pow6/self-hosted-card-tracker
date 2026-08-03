@@ -57,6 +57,7 @@ The most-touched table. One row per slot in the binder's grid (including deliber
 | `similarity_score` | Top-1 sim against the linked card; updated by reassign and refine actions. |
 | `review_status` | One of `pending`, `auto_matched`, `user_confirmed`, `new_card`, `empty`. CHECK-constrained. |
 | `deferred_at` | NULL = active; set when the user defers a pending item. |
+| `resolved_at` | Set when a review action resolves the placement (confirm / new card); NULL otherwise. |
 | `(page_id, slot_index)` | UNIQUE. |
 
 The polygon is what the refine UI starts from; saving a refinement re-warps the source image through the new polygon, re-embeds the resulting crop, and updates `polygon`, `crop_image_path`, `embedding`. The placement's `core_card_id` and `review_status` are NOT touched by refine — that's a separate user decision via reassign / promote-new / unmatch.

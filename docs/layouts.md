@@ -44,4 +44,4 @@ Row-major: `slot_index = row * cols + col`. Cells number `0` to `R*C - 1` left-t
 ## Constraints by layout (advisory)
 
 - **1×1.** CV bbox detection still expects a binder-page silhouette. For raw single cards on a flat surface, the page detector may struggle; expect to drag the polygon manually.
-- **4×4 and denser.** `MIN_CELL_FILL` (0.30) was tuned for 3×3 cell sizes. Smaller cells often fail it. See [detection.md](detection.md) for tuning notes.
+- **4×4 and denser.** The default `min_cell_fill` (0.30) was tuned for 3×3 cell sizes; smaller cells often fail it. Lower it per binder via `detector_config` — see [detection.md](detection.md) for tuning notes.

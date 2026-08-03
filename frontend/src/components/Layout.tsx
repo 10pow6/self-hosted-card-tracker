@@ -1,4 +1,4 @@
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate } from 'react-router';
 import { Settings as SettingsIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BottomNav, BrandMark, SideNav } from '@/components/nav';

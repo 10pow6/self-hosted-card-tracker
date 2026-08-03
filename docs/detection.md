@@ -85,6 +85,6 @@ Call from a Python REPL or scratch script when tuning.
 
 ## Known weak spots
 
-- **Dense layouts (4×4 and up).** `MIN_CELL_FILL` was tuned for 3×3 — small cells often fail it. The user can still drag manually; tuning is on the troubleshooting list.
+- **Dense layouts (4×4 and up).** The default `min_cell_fill` was tuned for 3×3 — small cells often fail it. Lower it per binder via `detector_config` (Advanced detection tuning in the create-binder dialog), or drag manually.
 - **Toploaders against a busy background.** Stage 1 needs a single clearly-darkest region; transparent toploaders on a dark surface confuse it.
 - **Glossy sleeves under harsh light.** Specular highlights chunk the card mask. The 5×5 open kernel helps but isn't perfect — diffuse lighting always beats algorithm tuning.

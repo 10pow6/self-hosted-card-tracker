@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import type { Binder } from '@/api/types';
 import { Card } from '@/components/ui/card';
 import { parseLayout } from '@/lib/layout';

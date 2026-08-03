@@ -105,6 +105,8 @@ The skill is project-scoped: the user saves it as `<project>/.claude/skills/enri
 
 ## User flow (UI side)
 
+Prerequisite: the **Claude Code CLI** installed and signed in (`npm install --global @anthropic-ai/claude-code`, then run `claude` once) — see [setup.md](setup.md#prerequisites).
+
 1. **Settings → "Claude Code enrichment skill"** — flip the toggle on.
 2. Edit the allowlist textarea if needed; click **Save allowlist**.
 3. Click **Download enrich-cards.md**.

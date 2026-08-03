@@ -111,8 +111,9 @@ Each card has editable metadata (name, set, year, type, notes). For unenriched c
 
 - **Python 3.11+** (3.13 tested).
 - **Node 20.19+** or **22.12+** (Vite 8 requires this).
-- **Yarn classic** (v1).
+- **Yarn classic** (v1) — once Node is installed: `npm install --global yarn`.
 - **Git**.
+- *(Optional)* **Claude Code CLI** — only needed for the [metadata-enrichment skill](docs/enrichment.md): `npm install --global @anthropic-ai/claude-code`, then run `claude` once to sign in.
 
 ### Clone
 

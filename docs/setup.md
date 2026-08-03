@@ -6,8 +6,19 @@ The top-level [README.md](../README.md) has the same instructions in marketing-f
 
 - Python **3.11+** (3.13 tested).
 - Node **20.19+** or **22.12+** (Vite 8 requirement).
-- **Yarn classic** (v1).
+- **Yarn classic** (v1) — install with npm once Node is present:
+
+  ```bash
+  npm install --global yarn
+  ```
+
 - **Git**.
+- *(Optional)* **Claude Code CLI** — only needed for the [metadata-enrichment skill](enrichment.md):
+
+  ```bash
+  npm install --global @anthropic-ai/claude-code
+  claude   # first run walks you through sign-in
+  ```
 
 ## Backend
 

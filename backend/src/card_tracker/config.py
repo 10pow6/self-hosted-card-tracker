@@ -18,8 +18,9 @@ class Settings(BaseModel):
     embedding_dim: int = 384
 
     binder_layout: str = "3x3"
+    # Default auto-accept threshold; the live value is user-adjustable and
+    # persisted via services.app_settings.
     match_threshold: float = 0.92
-    review_threshold: float = 0.80
 
     matcher_id: str = "cosine-multivote-v1"
 

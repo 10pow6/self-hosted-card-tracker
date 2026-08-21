@@ -16,9 +16,9 @@ Backend lives in [`services/placements.py`](../backend/src/card_tracker/services
 
 ## Where to find the actions
 
-- **CardDetail** → each placement row has a `…` menu: Refine, Move, Promote, Send to review.
-- **PageDetail** → clicking a populated slot navigates to its **Refine** view (sidebar exposes the same actions).
-- **PlacementRefine** route — `/placements/:id/refine`. Polygon editor on the left over the source page; sidebar with current match, action buttons, and a re-rankable top-3 candidate list.
+- **CardDetail** → each placement row shows one visible **Fix crop** action; the `…` menu holds Move, Promote to new card, Set as source image, Send back to review.
+- **PageDetail** → a populated slot links to its **card** when matched (its refine view when unmatched); the slot's hover card offers both "Open card" and "Fix crop".
+- **PlacementRefine** route — `/placements/:id/refine`, split into two labeled jobs: **Crop** (polygon editor over the source page; save re-warps + re-embeds) and a sticky **Identity** sidebar (current match with status + confidence + decision audit trail, top-3 candidates that re-rank after crop saves). Reassign / promote / unmatch all confirm before acting — reassignment states that an orphaned entry will be pruned.
 
 ## What "refine" does to the data
 

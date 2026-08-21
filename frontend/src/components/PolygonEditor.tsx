@@ -2,6 +2,11 @@ import { useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import type { Point, Slot } from '@/api/types';
 
+// Box colors follow the provenance palette (lib/decisions.ts): amber = the
+// detector's unconfirmed proposal, blue = refined/user-adjusted geometry.
+const STROKE_REFINED = 'var(--info)';
+const STROKE_UNREFINED = 'var(--warning)';
+
 type Props = {
   imageUrl: string;
   imageSize: [number, number];
@@ -72,6 +77,7 @@ export function PolygonEditor({ imageUrl, imageSize, bbox, rows, cols, slots, on
   const pointersRef = useRef<Map<number, Point>>(new Map());
   const pinchRef = useRef<Pinch>(null);
   const [vb, setVb] = useState<[number, number, number, number]>([0, 0, w, h]);
+  const [hintDismissed, setHintDismissed] = useState(false);
 
   const cellRect = (slotIdx: number) => {
     const [bx, by, bw, bh] = bbox;
@@ -105,6 +111,7 @@ export function PolygonEditor({ imageUrl, imageSize, bbox, rows, cols, slots, on
   };
 
   const onSvgPointerDown = (e: ReactPointerEvent<SVGSVGElement>) => {
+    setHintDismissed(true);
     addPointer(e);
     // Bubbled here only because the click was on the SVG background or image —
     // box/handle/button handlers all stop propagation. Start a pan drag.
@@ -121,7 +128,8 @@ export function PolygonEditor({ imageUrl, imageSize, bbox, rows, cols, slots, on
   const constrainVB = (next: [number, number, number, number]): [number, number, number, number] => {
     const minSize = Math.min(w, h) * 0.1;
     const maxSize = Math.max(w, h) * 1.5;
-    let [nx, ny, nw, nh] = next;
+    const [, , nw, nh] = next;
+    let [nx, ny] = next;
     if (nw < minSize || nw > maxSize || nh < minSize || nh > maxSize) return vb;
     // Soft-clamp pan so the image isn't dragged completely out of view
     nx = Math.max(-nw * 0.5, Math.min(w - nw * 0.5, nx));
@@ -292,7 +300,8 @@ export function PolygonEditor({ imageUrl, imageSize, bbox, rows, cols, slots, on
                   cx={c.x}
                   cy={c.y}
                   r={addR}
-                  fill="rgba(34, 197, 94, 0.85)"
+                  fill="var(--success)"
+                  fillOpacity={0.9}
                   stroke="white"
                   strokeWidth={stroke}
                 />
@@ -310,7 +319,7 @@ export function PolygonEditor({ imageUrl, imageSize, bbox, rows, cols, slots, on
               </g>
             );
           }
-          const strokeColor = s.refined ? 'var(--card-refined)' : 'var(--card-needs-review)';
+          const strokeColor = s.refined ? STROKE_REFINED : STROKE_UNREFINED;
           // Place × button slightly INWARD from corner 1 (top-right), toward centroid
           const tr = s.polygon[1];
           const cxAvg = (s.polygon[0].x + s.polygon[1].x + s.polygon[2].x + s.polygon[3].x) / 4;
@@ -366,7 +375,7 @@ export function PolygonEditor({ imageUrl, imageSize, bbox, rows, cols, slots, on
                   cx={removeX}
                   cy={removeY}
                   r={removeR}
-                  fill="#ef4444"
+                  fill="var(--destructive)"
                   stroke="white"
                   strokeWidth={stroke / 2}
                   style={{ pointerEvents: 'none' }}
@@ -387,6 +396,11 @@ export function PolygonEditor({ imageUrl, imageSize, bbox, rows, cols, slots, on
           );
         })}
       </svg>
+      {!hintDismissed && (
+        <div className="pointer-events-none absolute bottom-2 left-2 rounded-md bg-background/85 backdrop-blur px-2.5 py-1.5 text-[11px] text-muted-foreground max-w-[70%]">
+          Drag corners to fit each card · drag a box to move it · pinch or use the buttons to zoom
+        </div>
+      )}
       <div className="absolute bottom-2 right-2 flex flex-col gap-1">
         <button
           onClick={() => zoomBy(ZOOM_STEP)}

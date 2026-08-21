@@ -1,4 +1,20 @@
-import type { ModelSlot } from './types';
+import type { MatchingSettings, ModelSlot } from './types';
+
+export async function getMatchingSettings(): Promise<MatchingSettings> {
+  const res = await fetch('/api/settings/matching');
+  if (!res.ok) throw new Error(`getMatchingSettings → ${res.status}: ${await res.text()}`);
+  return (await res.json()) as MatchingSettings;
+}
+
+export async function saveMatchThreshold(value: number): Promise<MatchingSettings> {
+  const res = await fetch('/api/settings/matching', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ match_threshold: value }),
+  });
+  if (!res.ok) throw new Error(`saveMatchThreshold → ${res.status}: ${await res.text()}`);
+  return (await res.json()) as MatchingSettings;
+}
 
 export async function getModelSlots(): Promise<ModelSlot[]> {
   const res = await fetch('/api/settings/model-slots');

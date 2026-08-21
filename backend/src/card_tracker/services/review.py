@@ -11,22 +11,38 @@ from card_tracker.services import match
 from card_tracker.services.paths import to_url
 
 
-def list_queue() -> list[dict]:
-    """Return both active (review_status='pending', deferred_at NULL) and deferred items.
+def list_queue(*, tab: str = "active", limit: int = 5, offset: int = 0) -> dict:
+    """One page of the review queue plus totals for both tabs.
 
-    Top-3 candidates are recomputed on the fly per placement so the queue stays
-    consistent if the CORE table grows or shrinks between visits.
+    `tab` is 'active' (deferred_at NULL) or 'deferred'. Top-3 candidates are
+    recomputed on the fly for the returned page only — paging server-side keeps
+    that recompute bounded no matter how large the queue grows.
+
+    Returns {"items": [...], "total_active": N, "total_deferred": M,
+             "limit": limit, "offset": offset}.
     """
-    sql = """
+    if tab not in ("active", "deferred"):
+        raise ValueError(f"Unknown tab: {tab}")
+    deferred_clause = (
+        "pl.deferred_at IS NULL" if tab == "active" else "pl.deferred_at IS NOT NULL"
+    )
+    sql = f"""
     SELECT pl.*, p.page_number AS pg_num, p.binder_id AS bndr_id, b.name AS bndr_name
     FROM placement pl
     JOIN page p   ON pl.page_id = p.id
     JOIN binder b ON p.binder_id = b.id
-    WHERE pl.review_status = 'pending'
-    ORDER BY (pl.deferred_at IS NOT NULL), pl.created_at ASC
+    WHERE pl.review_status = 'pending' AND {deferred_clause}
+    ORDER BY pl.created_at ASC
+    LIMIT ? OFFSET ?
     """
     with closing(connect()) as conn:
-        rows = conn.execute(sql).fetchall()
+        totals = conn.execute(
+            "SELECT "
+            "  SUM(deferred_at IS NULL) AS active, "
+            "  SUM(deferred_at IS NOT NULL) AS deferred "
+            "FROM placement WHERE review_status = 'pending'"
+        ).fetchone()
+        rows = conn.execute(sql, (limit, offset)).fetchall()
         out: list[dict] = []
         for r in rows:
             embedding_blob = r["embedding"]
@@ -60,7 +76,13 @@ def list_queue() -> list[dict]:
                 "candidates": candidate_payload,
                 "deferred_at": r["deferred_at"],
             })
-        return out
+        return {
+            "items": out,
+            "total_active": int(totals["active"] or 0),
+            "total_deferred": int(totals["deferred"] or 0),
+            "limit": limit,
+            "offset": offset,
+        }
 
 
 def confirm_match(placement_id: str, core_card_id: str) -> None:

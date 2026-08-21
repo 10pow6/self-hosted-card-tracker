@@ -31,6 +31,18 @@ A row is **"unenriched"** when `name IS NULL` — surfaced in the UI as "needs m
 | `detector` | Detector id this binder uses for `/scans/preview`, e.g. `'opencv-grid-v1'`. See [detection.md](detection.md). |
 | `detector_config` | JSON; schema depends on `detector`. Subset of the detector's fields; missing keys fall back to that detector's defaults. |
 
+`name`, `detector`, and `detector_config` are editable after creation via `PATCH /api/binders/{id}` (detector changes apply to future scans). `layout` is immutable — pages were committed against it. `DELETE /api/binders/{id}` cascades to pages and placements; catalog entries survive.
+
+### `app_setting` — runtime-adjustable settings
+
+| Column | Notes |
+|---|---|
+| `key` | Setting name, e.g. `match_threshold`. |
+| `value` | JSON-encoded value. |
+| `updated_at` | ISO timestamp. |
+
+Read through `services.app_settings`, which layers defaults from `config.py` and caches in-process. Currently holds the auto-accept `match_threshold` (Settings → Automation).
+
 ### `page` — one photographed page within a binder
 
 | Column | Notes |
@@ -80,12 +92,14 @@ Crop files on disk are **not** touched: each placement still owns its own `crop_
 
 ### UI flow — `/cards/merge`
 
-Merging is a **database-level** operation, not a per-card-detail action. The dedicated route `/cards/merge` is the only UI surface for it. Reach it from the **Merge duplicates** button in the Card database (`/cards`) page header, or directly via URL with optional `?target=<id>` pre-selection.
+Merging is a **catalog-level** operation, not a per-card-detail action. The dedicated route `/cards/merge` is the only UI surface for it. Reach it from the **Merge duplicates** button in the Catalog (`/cards`) page header, or directly via URL with optional `?target=<id>` pre-selection.
 
-The page is a two-pane layout (full content width, side-by-side on desktop, stacked on mobile):
+The page opens with a **Likely duplicates** section: model-proposed pairs from `GET /api/cards/duplicates` (embedding cosine ≥ 0.9), each with a confidence chip, a suggested keeper (more placements → named → older), a one-click **Stage merge**, and a dismiss. Suggestions are advisory — nothing merges without staging + the confirm dialog.
 
-- **Target pane (left)** — the keeper. Single selection. Search + list. Big preview + placement count when set, with a clear button.
-- **Sources pane (right)** — the duplicates being folded in. Multi-select. Selected cards shown as a tile grid above the search list (click a tile to remove). The current target is excluded and visually disabled in the source list.
+Below it, the manual two-pane pickers (side-by-side on desktop, stacked on mobile) — both search the **whole catalog**; they are pickers, not duplicate reports:
+
+- **Keeper pane (left)** — single selection. Search + list. Big preview + placement count when set, with a clear button.
+- **Duplicates pane (right)** — multi-select, revealed only after a keeper is chosen (progressive disclosure — prevents the two identical pre-selection lists that read as "duplicates found"). Selected cards shown as a tile grid above the search list (click a tile to remove). The current keeper is excluded from the source list.
 - **Footer** — selection summary plus a confirm button labeled `Merge N into <target>`. Confirms run sequentially with a progress indicator; navigates to the target's CardDetail on success.
 
 After a merge, future similarity searches benefit because the target now has more confirmed photos contributing to its match score (see [embeddings.md](embeddings.md)).

@@ -1,4 +1,6 @@
-from fastapi import APIRouter, HTTPException
+from typing import Optional
+
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from card_tracker.services import placements as placements_svc
@@ -7,9 +9,20 @@ router = APIRouter(prefix="/placements", tags=["placements"])
 
 
 @router.get("")
-def list_placements() -> list[dict]:
-    """Flat list of every non-empty placement (Collection > All cards tab)."""
-    return placements_svc.list_placements()
+def list_placements(
+    q: Optional[str] = Query(default=None, max_length=200),
+    review_status: Optional[str] = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+) -> dict:
+    """Filtered + paged flat list of non-empty placements (Binders > Physical cards).
+    Returns {items, total, limit, offset}."""
+    try:
+        return placements_svc.list_placements(
+            q=q, review_status=review_status, limit=limit, offset=offset
+        )
+    except placements_svc.PlacementError as e:
+        raise HTTPException(status_code=422, detail=str(e))
 
 
 @router.get("/{placement_id}")

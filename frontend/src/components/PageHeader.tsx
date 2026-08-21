@@ -11,9 +11,10 @@ type Props = {
   className?: string;
 };
 
+// Page title block. Gutters come from <Page>; this only owns vertical rhythm.
 export function PageHeader({ title, description, back, actions, className }: Props) {
   return (
-    <header className={cn('px-4 md:px-8 pt-6 md:pt-10 pb-4 md:pb-6', className)}>
+    <header className={cn('pt-6 md:pt-10 pb-4 md:pb-6', className)}>
       {back && (
         <Link
           to={back.to}

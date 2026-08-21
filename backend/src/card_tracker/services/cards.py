@@ -5,6 +5,8 @@ import sqlite3
 from contextlib import closing
 from typing import Optional
 
+import numpy as np
+
 from card_tracker.db.engine import connect, transaction
 from card_tracker.services.paths import to_url
 
@@ -71,6 +73,60 @@ def get_card(card_id: str) -> Optional[dict]:
     with closing(connect()) as conn:
         row = conn.execute("SELECT * FROM core_card WHERE id = ?", (card_id,)).fetchone()
         return _card_dict(conn, row) if row else None
+
+
+def find_duplicate_pairs(*, threshold: float = 0.9, limit: int = 20) -> list[dict]:
+    """Likely duplicate *identities*: pairs of CORE rows whose representative
+    embeddings are ≥ `threshold` cosine-similar. Suggestions only — the user
+    decides what counts as "the same card" (e.g. same-art energies from
+    different sets can score high while being legitimately distinct).
+
+    Pairs are only compared within the same embedder identity. Similarity is
+    computed block-wise so memory stays bounded on large catalogs.
+    """
+    with closing(connect()) as conn:
+        rows = conn.execute(
+            "SELECT id, embedding, embedder_name, embedder_version FROM core_card "
+            "WHERE embedding IS NOT NULL"
+        ).fetchall()
+        groups: dict[tuple[str, str], list[sqlite3.Row]] = {}
+        for r in rows:
+            groups.setdefault((r["embedder_name"], r["embedder_version"]), []).append(r)
+
+        scored: list[tuple[float, str, str]] = []  # (similarity, id_a, id_b)
+        block = 512
+        for group in groups.values():
+            if len(group) < 2:
+                continue
+            ids = [r["id"] for r in group]
+            matrix = np.stack(
+                [np.frombuffer(r["embedding"], dtype=np.float32) for r in group]
+            )
+            n = len(ids)
+            for start in range(0, n, block):
+                stop = min(start + block, n)
+                sims = matrix[start:stop] @ matrix.T  # (stop-start, n)
+                for local_i in range(stop - start):
+                    i = start + local_i
+                    row_sims = sims[local_i]
+                    for j in np.nonzero(row_sims >= threshold)[0]:
+                        if j <= i:  # upper triangle only: no self, no mirrored pair
+                            continue
+                        scored.append((float(row_sims[j]), ids[i], ids[int(j)]))
+
+        scored.sort(key=lambda t: t[0], reverse=True)
+        pairs: list[dict] = []
+        for sim, id_a, id_b in scored[:limit]:
+            a = conn.execute("SELECT * FROM core_card WHERE id = ?", (id_a,)).fetchone()
+            b = conn.execute("SELECT * FROM core_card WHERE id = ?", (id_b,)).fetchone()
+            if a is None or b is None:
+                continue
+            pairs.append({
+                "a": _card_dict(conn, a),
+                "b": _card_dict(conn, b),
+                "similarity": sim,
+            })
+        return pairs
 
 
 class CardMergeError(ValueError):

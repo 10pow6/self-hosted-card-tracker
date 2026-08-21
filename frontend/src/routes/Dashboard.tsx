@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import {
   ArrowRight,
@@ -7,168 +7,142 @@ import {
   Layers,
   LayoutGrid,
   Library,
-  Sparkles,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Page } from '@/components/Page';
 import { PageHeader } from '@/components/PageHeader';
 import { StatCard } from '@/components/StatCard';
+import { ErrorState } from '@/components/ErrorState';
+import { ActivityCard } from '@/features/home/ActivityCard';
+import { FirstRunHero } from '@/features/home/FirstRunHero';
+import { GuardrailsCard } from '@/features/home/GuardrailsCard';
 import { getActivity, getStats } from '@/api/dashboardApi';
+import { getErrorMessage } from '@/api/client';
 import type { ActivityItem, DashboardStats } from '@/api/types';
-
-const ACTIVITY_ICON: Record<ActivityItem['kind'], typeof Camera> = {
-  scan: Camera,
-  review: Inbox,
-  enrich: Sparkles,
-  binder: Library,
-};
 
 export function Dashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [statsError, setStatsError] = useState<string | null>(null);
   const [activity, setActivity] = useState<ActivityItem[] | null>(null);
+  const [activityError, setActivityError] = useState<string | null>(null);
+
+  const load = useCallback(() => {
+    setStatsError(null);
+    setActivityError(null);
+    getStats()
+      .then(setStats)
+      .catch((e) => setStatsError(getErrorMessage(e)));
+    getActivity()
+      .then(setActivity)
+      .catch((e) => setActivityError(getErrorMessage(e)));
+  }, []);
 
   useEffect(() => {
-    getStats().then(setStats);
-    getActivity().then(setActivity);
-  }, []);
+    load();
+  }, [load]);
+
+  const firstRun = stats !== null && stats.binders === 0 && stats.core_cards === 0;
 
   return (
     <div className="relative isolate">
       <div className="brand-band absolute top-0 inset-x-0 h-72 -z-10 pointer-events-none" />
-      <PageHeader
-        title={
-          <>
-            Welcome back<span className="text-muted-foreground"> ·</span>{' '}
-            <span className="text-primary">your collection</span>
-          </>
-        }
-        description="A self-hosted home for every card in every binder. Scan a page, resolve matches, and keep your card database tidy."
-      />
-      <section className="px-4 md:px-8 grid gap-3 grid-cols-2 lg:grid-cols-5">
-        {stats ? (
-          <>
-            <StatCard icon={Library} label="Binders" value={stats.binders} tone="accent" />
-            <StatCard icon={Camera} label="Pages scanned" value={stats.pages} />
-            <StatCard
-              icon={LayoutGrid}
-              label="Unique cards"
-              value={stats.core_cards}
-              hint="distinct cards in your database"
-            />
-            <StatCard
-              icon={Layers}
-              label="Total cards"
-              value={stats.total_cards}
-              hint="cards across all binders (incl. duplicates)"
-            />
-            <StatCard
-              icon={Inbox}
-              label="Pending review"
-              value={stats.pending_review}
-              tone={stats.pending_review > 0 ? 'warn' : 'default'}
-              hint={stats.pending_review > 0 ? 'similar matches need a yes/no' : 'queue is clear'}
-            />
-          </>
-        ) : (
-          Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)
-        )}
-      </section>
-
-      <section className="px-4 md:px-8 mt-6 grid gap-4 lg:grid-cols-3">
-        <QuickAction
-          to="/scan"
-          icon={Camera}
-          title="Upload a page"
-          subtitle="Capture or upload a binder page (any layout); auto-detect cards, review, then commit."
-          accent
+      <Page>
+        <PageHeader
+          title={
+            <>
+              Welcome back<span className="text-muted-foreground"> ·</span>{' '}
+              <span className="text-primary">your collection</span>
+            </>
+          }
+          description="A self-hosted home for every card in every binder. The model proposes matches; you make the calls."
         />
-        <QuickAction
-          to="/review"
-          icon={Inbox}
-          title="Resolve the queue"
-          subtitle="Confirm or reject auto-match candidates with keyboard shortcuts."
-        />
-        <QuickAction
-          to="/cards"
-          icon={LayoutGrid}
-          title="Browse the card database"
-          subtitle="Every distinct card you've cataloged. Filter and enrich metadata."
-        />
-      </section>
 
-      <section className="px-4 md:px-8 mt-8 mb-12 grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2 overflow-hidden">
-          <CardContent className="p-0">
-            <header className="px-5 py-4 border-b border-border flex items-center justify-between">
-              <div>
-                <div className="font-semibold">Recent activity</div>
-                <div className="text-xs text-muted-foreground">
-                  Local events from your collection.
-                </div>
-              </div>
-            </header>
-            <ul className="divide-y divide-border">
-              {(activity ?? Array.from({ length: 4 }).map(() => null)).map((a, i) => {
-                if (!a)
-                  return (
-                    <li key={i} className="px-5 py-4">
-                      <Skeleton className="h-10 w-full" />
-                    </li>
-                  );
-                const Icon = ACTIVITY_ICON[a.kind];
-                return (
-                  <li key={a.id} className="px-5 py-4 flex items-center gap-3">
-                    <div className="size-9 rounded-lg bg-muted grid place-items-center text-muted-foreground">
-                      <Icon className="size-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium truncate">{a.title}</div>
-                      <div className="text-xs text-muted-foreground truncate">{a.detail}</div>
-                    </div>
-                    <time className="text-xs text-muted-foreground tabular-nums">
-                      {formatRelative(a.when)}
-                    </time>
-                  </li>
-                );
-              })}
-            </ul>
-          </CardContent>
-        </Card>
-
-        <Card className="overflow-hidden">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-2 text-sm font-semibold">
-              <Sparkles className="size-4 text-primary" />
-              How matching works
+        {statsError ? (
+          <ErrorState message={statsError} onRetry={load} />
+        ) : firstRun ? (
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <FirstRunHero />
             </div>
-            <ol className="mt-3 space-y-3 text-sm text-muted-foreground">
-              <li>
-                <span className="text-foreground font-medium">1. Capture</span>
-                <p>Photograph or upload a binder page in any layout (1×1 up to 4×4).</p>
-              </li>
-              <li>
-                <span className="text-foreground font-medium">2. Detect</span>
-                <p>The detection model parses each card slot; you confirm boxes.</p>
-              </li>
-              <li>
-                <span className="text-foreground font-medium">3. Embed & match</span>
-                <p>Each crop is embedded and compared to your card database.</p>
-              </li>
-              <li>
-                <span className="text-foreground font-medium">4. Resolve</span>
-                <p>Ambiguous matches land in the work queue for a quick yes/no.</p>
-              </li>
-            </ol>
-            <Button variant="ghost" size="sm" className="mt-4" asChild>
-              <Link to="/settings">
-                Configure models
-                <ArrowRight className="size-3.5" />
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </section>
+            <GuardrailsCard />
+          </div>
+        ) : (
+          <>
+            <section className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+              {stats ? (
+                <>
+                  <StatCard icon={Library} label="Binders" value={stats.binders} tone="accent" to="/binders" />
+                  <StatCard icon={Camera} label="Pages scanned" value={stats.pages} to="/binders" />
+                  <StatCard
+                    icon={LayoutGrid}
+                    label="Catalog entries"
+                    value={stats.core_cards}
+                    hint={
+                      stats.needs_metadata > 0
+                        ? `${stats.needs_metadata} still need info`
+                        : 'distinct cards in your catalog'
+                    }
+                    to={stats.needs_metadata > 0 ? '/cards?needs=1' : '/cards'}
+                  />
+                  <StatCard
+                    icon={Layers}
+                    label="Physical cards"
+                    value={stats.total_cards}
+                    hint="across all binders, incl. duplicates"
+                    to="/binders?tab=cards"
+                  />
+                  <StatCard
+                    icon={Inbox}
+                    label="Pending review"
+                    value={stats.pending_review}
+                    tone={stats.pending_review > 0 ? 'warn' : 'default'}
+                    hint={stats.pending_review > 0 ? 'matches waiting on you' : 'queue is clear'}
+                    to="/review"
+                  />
+                </>
+              ) : (
+                Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)
+              )}
+            </section>
+
+            <section className="mt-6 grid gap-4 lg:grid-cols-3">
+              <QuickAction
+                to="/scan"
+                icon={Camera}
+                title="Scan a page"
+                subtitle="Photograph a binder page; the detector proposes card boxes for you to confirm."
+                accent
+              />
+              <QuickAction
+                to="/review"
+                icon={Inbox}
+                title="Resolve the queue"
+                subtitle={
+                  stats && stats.pending_review > 0
+                    ? `${stats.pending_review} proposed matches are waiting on your judgment.`
+                    : 'Confirm or reject proposed matches — keyboard-first.'
+                }
+              />
+              <QuickAction
+                to="/cards"
+                icon={LayoutGrid}
+                title="Browse the catalog"
+                subtitle={
+                  stats && stats.needs_metadata > 0
+                    ? `${stats.needs_metadata} cards are missing metadata — edit by hand or run the enrichment skill.`
+                    : "Every distinct card you've filed. Filter, edit, and enrich metadata."
+                }
+              />
+            </section>
+
+            <section className="mt-8 grid gap-6 lg:grid-cols-3">
+              <ActivityCard activity={activity} error={activityError} />
+              <GuardrailsCard />
+            </section>
+          </>
+        )}
+      </Page>
     </div>
   );
 }
@@ -212,15 +186,4 @@ function QuickAction({
       </Card>
     </Link>
   );
-}
-
-function formatRelative(iso: string): string {
-  const ms = Date.now() - new Date(iso).getTime();
-  const min = Math.round(ms / 60_000);
-  if (min < 60) return `${min}m`;
-  const hr = Math.round(min / 60);
-  if (hr < 24) return `${hr}h`;
-  const d = Math.round(hr / 24);
-  if (d < 30) return `${d}d`;
-  return `${Math.round(d / 30)}mo`;
 }

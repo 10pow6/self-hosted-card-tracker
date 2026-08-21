@@ -67,3 +67,11 @@ CREATE INDEX IF NOT EXISTS idx_placement_review ON placement(review_status);
 CREATE INDEX IF NOT EXISTS idx_placement_core ON placement(core_card_id);
 CREATE INDEX IF NOT EXISTS idx_placement_deferred ON placement(deferred_at);
 CREATE INDEX IF NOT EXISTS idx_page_binder ON page(binder_id);
+
+-- Small key/value store for runtime-adjustable app settings (JSON values).
+-- Read through services.app_settings, which layers defaults from config.py.
+CREATE TABLE IF NOT EXISTS app_setting (
+    key        TEXT PRIMARY KEY,
+    value      TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);

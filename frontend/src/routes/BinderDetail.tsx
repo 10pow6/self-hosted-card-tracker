@@ -1,74 +1,104 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router';
-import { Camera, Download, Library, Plus } from 'lucide-react';
+import { Link, useNavigate, useParams } from 'react-router';
+import { Camera, ChevronDown, Download, Library, Loader2, Plus, Settings2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Page } from '@/components/Page';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
-import { getBinder, getPage } from '@/api/bindersApi';
-import type { Binder, Page } from '@/api/types';
+import { ErrorState } from '@/components/ErrorState';
+import { PageThumb } from '@/features/binders/PageThumb';
+import { BinderSettingsDialog } from '@/features/binders/BinderSettingsDialog';
+import { getBinder, listPages } from '@/api/bindersApi';
+import { getErrorMessage } from '@/api/client';
+import { downloadPdf, exportUrls } from '@/api/exportsApi';
+import { refreshPendingReview } from '@/hooks/usePendingReview';
+import type { Binder, Page as BinderPage } from '@/api/types';
 import { parseLayout } from '@/lib/layout';
+import { getDetectorSpec } from '@/lib/detectors';
 
 export function BinderDetail() {
   const { id = '' } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [binder, setBinder] = useState<Binder | null | undefined>(undefined);
-  const [pages, setPages] = useState<Page[] | null>(null);
+  const [pages, setPages] = useState<BinderPage[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
-  useEffect(() => {
-    getBinder(id).then(setBinder);
-  }, [id]);
+  const load = () => {
+    setError(null);
+    setBinder(undefined);
+    setPages(null);
+    // One request for the binder, one for every page with its full grid.
+    getBinder(id)
+      .then((b) => {
+        setBinder(b);
+        if (b) return listPages(b.id).then(setPages);
+      })
+      .catch((e) => setError(getErrorMessage(e)));
+  };
+  useEffect(load, [id]);
 
-  useEffect(() => {
-    if (!binder) return;
-    Promise.all(
-      Array.from({ length: binder.page_count }, (_, i) => getPage(binder.id, i + 1)),
-    ).then((ps) => setPages(ps.filter((p): p is Page => p !== null)));
-  }, [binder]);
-
+  if (error) {
+    return (
+      <Page>
+        <PageHeader title="Binder" back={{ to: '/binders', label: 'Binders' }} />
+        <ErrorState message={error} onRetry={load} />
+      </Page>
+    );
+  }
   if (binder === undefined) {
     return (
-      <>
+      <Page>
         <PageHeader title={<Skeleton className="h-8 w-64" />} back={{ to: '/binders', label: 'Binders' }} />
-        <div className="px-4 md:px-8 grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="aspect-card rounded-xl" />
           ))}
         </div>
-      </>
+      </Page>
     );
   }
   if (binder === null) {
     return (
-      <>
+      <Page>
         <PageHeader title="Binder not found" back={{ to: '/binders', label: 'Binders' }} />
-        <div className="px-4 md:px-8">
-          <EmptyState icon={Library} title="That binder doesn't exist" />
-        </div>
-      </>
+        <EmptyState icon={Library} title="That binder doesn't exist" />
+      </Page>
     );
   }
 
+  const dims = parseLayout(binder.layout);
+  const pendingCount =
+    pages?.reduce(
+      (sum, p) => sum + p.placements.filter((pl) => pl.review_status === 'pending').length,
+      0,
+    ) ?? 0;
+
   return (
-    <>
+    <Page>
       <PageHeader
         title={binder.name}
-        description={`${binder.page_count} pages · ${binder.card_count} cards · ${parseLayout(binder.layout).rows}×${parseLayout(binder.layout).cols} pockets`}
+        description={`${binder.page_count} pages · ${binder.card_count} cards`}
         back={{ to: '/binders', label: 'Binders' }}
         actions={
           <div className="flex items-center gap-2">
-            <Button asChild variant="outline" size="sm">
-              <a href={`/api/binders/${binder.id}/export-pages.pdf`} download>
-                <Download className="size-3.5" />
-                Export pages PDF
-              </a>
+            <Button
+              variant="outline"
+              size="icon-sm"
+              aria-label="Binder settings"
+              onClick={() => setSettingsOpen(true)}
+            >
+              <Settings2 />
             </Button>
-            <Button asChild variant="outline" size="sm">
-              <a href={`/api/binders/${binder.id}/export-cards.pdf`} download>
-                <Download className="size-3.5" />
-                Export cards PDF
-              </a>
-            </Button>
+            <ExportMenu binder={binder} />
             <Button asChild>
               <Link to={`/scan?binder=${binder.id}`}>
                 <Camera className="size-4" />
@@ -78,61 +108,96 @@ export function BinderDetail() {
           </div>
         }
       />
-      <section className="px-4 md:px-8 pb-12">
-        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
-          {(pages ?? Array.from({ length: binder.page_count }).map(() => null)).map((p, i) => {
-            if (!p)
-              return <Skeleton key={i} className="aspect-card rounded-xl" />;
-            return <PageThumb key={p.id} binder={binder} page={p} />;
-          })}
+
+      <div className="mb-5 flex flex-wrap items-center gap-2">
+        <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground tabular-nums">
+          {dims.rows}×{dims.cols} pockets
+        </span>
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <Settings2 className="size-3.5" />
+          {getDetectorSpec(binder.detector).label}
+          {binder.detector_config && Object.keys(binder.detector_config).length > 0
+            ? ' · custom'
+            : ''}
+        </button>
+        {pendingCount > 0 && (
           <Link
-            to={`/scan?binder=${binder.id}`}
-            className="group aspect-card rounded-xl border-2 border-dashed border-border bg-card/40 grid place-items-center text-muted-foreground hover:text-foreground hover:border-primary transition-colors"
+            to="/review"
+            className="inline-flex items-center gap-1.5 rounded-full bg-warning/15 px-2.5 py-1 text-xs font-medium text-warning hover:bg-warning/25 transition-colors tabular-nums"
           >
-            <div className="flex flex-col items-center gap-2">
-              <Plus className="size-6" />
-              <span className="text-xs font-medium">Scan a page</span>
-            </div>
+            {pendingCount} need review →
           </Link>
-        </div>
-      </section>
-    </>
+        )}
+      </div>
+
+      <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+        {(pages ?? Array.from({ length: binder.page_count }).map(() => null)).map((p, i) =>
+          p ? (
+            <PageThumb key={p.id} binder={binder} page={p} />
+          ) : (
+            <Skeleton key={i} className="aspect-card rounded-xl" />
+          ),
+        )}
+        <Link
+          to={`/scan?binder=${binder.id}`}
+          className="group aspect-card rounded-xl border-2 border-dashed border-border bg-card/40 grid place-items-center text-muted-foreground hover:text-foreground hover:border-primary transition-colors"
+        >
+          <div className="flex flex-col items-center gap-2">
+            <Plus className="size-6" />
+            <span className="text-xs font-medium">Scan a page</span>
+          </div>
+        </Link>
+      </div>
+
+      <BinderSettingsDialog
+        binder={binder}
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        onSaved={setBinder}
+        onDeleted={() => {
+          void refreshPendingReview();
+          navigate('/binders');
+        }}
+      />
+    </Page>
   );
 }
 
-function PageThumb({ binder, page }: { binder: Binder; page: Page }) {
-  const dims = parseLayout(binder.layout);
+function ExportMenu({ binder }: { binder: Binder }) {
+  const [busy, setBusy] = useState(false);
+  const run = async (url: string, filename: string) => {
+    setBusy(true);
+    try {
+      await downloadPdf(url, filename);
+      toast.success(`Exported ${filename}`);
+    } catch (e) {
+      toast.error(getErrorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const slug = binder.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'binder';
   return (
-    <Link to={`/binders/${binder.id}/pages/${page.page_number}`} className="group">
-      <Card className="overflow-hidden p-2 transition-all group-hover:border-primary/60 group-hover:-translate-y-0.5">
-        <div
-          className="grid gap-1"
-          style={{ gridTemplateColumns: `repeat(${dims.cols}, minmax(0, 1fr))` }}
-        >
-          {page.placements.map((pl) => (
-            <div
-              key={pl.id}
-              className="aspect-card rounded bg-muted overflow-hidden ring-1 ring-border/40"
-            >
-              {pl.crop_url ? (
-                <img src={pl.crop_url} alt="" className="size-full object-cover" />
-              ) : (
-                <div className="size-full grid place-items-center text-[10px] text-muted-foreground">
-                  empty
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-        <div className="px-1 pt-2 pb-1 flex items-center justify-between">
-          <div className="text-xs font-medium">Page {page.page_number}</div>
-          <div className="text-[10px] text-muted-foreground">
-            {page.placements.filter((p) => p.review_status === 'pending').length > 0 && (
-              <span className="text-[var(--card-needs-review)]">needs review</span>
-            )}
-          </div>
-        </div>
-      </Card>
-    </Link>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" disabled={busy}>
+          {busy ? <Loader2 className="animate-spin" /> : <Download />}
+          {busy ? 'Preparing…' : 'Export'}
+          <ChevronDown />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => run(exportUrls.binderCards(binder.id), `${slug}-cards.pdf`)}>
+          Cards PDF — one card per row
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => run(exportUrls.binderPages(binder.id), `${slug}-pages.pdf`)}>
+          Pages PDF — one page per sheet
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

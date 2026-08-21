@@ -18,6 +18,8 @@ All bodies are JSON unless noted. All `*_at` timestamps are ISO 8601 UTC (`YYYY-
 | GET | `/api/binders/detectors` | — | Catalog of detectors available for binder creation: `[{id, label, description, fields:[{key, default, min, max}]}]`. Mirrors `frontend/src/lib/detectors.ts`. |
 | POST | `/api/binders` | `{name, layout?, detector?, detector_config?}` | `Binder` (201). `detector` defaults to `'opencv-grid-v1'`; `detector_config` keys are validated against the chosen detector's schema. Invalid → 422. |
 | GET | `/api/binders/{binder_id}` | — | `Binder` or 404. |
+| PATCH | `/api/binders/{binder_id}` | `{name?, detector?, detector_config?}` | Updated `Binder`. Rename and/or re-tune detection (applies to future scans). `layout` is immutable. 422 on invalid input, 404 if missing. |
+| DELETE | `/api/binders/{binder_id}` | — | 204. Cascades pages + placements. Catalog entries survive (possibly at zero placements); crop files on disk are left in place. |
 | GET | `/api/binders/{binder_id}/export-cards.pdf` | — | Row-style PDF of every card linked to this binder. 404 if binder missing. See [export.md](export.md). |
 | GET | `/api/binders/{binder_id}/export-pages.pdf` | — | Full-grid PDF: one PDF page per binder page, RxC slots drawn with each card's crop. 404 if binder missing. |
 
@@ -25,8 +27,8 @@ All bodies are JSON unless noted. All `*_at` timestamps are ISO 8601 UTC (`YYYY-
 
 | Method | Path | Body / Query | Returns |
 |---|---|---|---|
-| GET | `/api/binders/{binder_id}/pages` | — | `[{id, page_number, captured_at}]`. 404 if binder missing. |
-| GET | `/api/binders/{binder_id}/pages/{page_number}` | — | `Page` with `placements` padded to `layout.total`. |
+| GET | `/api/binders/{binder_id}/pages` | — | `Page[]` — every page with its full placement grid (two queries server-side; replaces per-page fetching). 404 if binder missing. |
+| GET | `/api/binders/{binder_id}/pages/{page_number}` | — | `Page` with `placements` padded to `layout.total`. Placements carry `core_card_name` / `core_card_set` / `core_card_number` (null when unmatched). |
 
 ## Cards
 
@@ -34,6 +36,7 @@ All bodies are JSON unless noted. All `*_at` timestamps are ISO 8601 UTC (`YYYY-
 |---|---|---|---|
 | GET | `/api/cards` | `?type=&needs_metadata=&q=` | `CoreCard[]` (full filtered list — pagination is client-side). |
 | GET | `/api/cards/export.pdf` | — | Multi-page PDF of every CORE row, row-style. See [export.md](export.md). |
+| GET | `/api/cards/duplicates` | `?threshold=0.9&limit=20` | `[{a: CoreCard, b: CoreCard, similarity}]` — likely duplicate identities by embedding cosine similarity (same embedder identity only), highest first. Advisory; the user confirms every merge. `threshold` 0.5–0.999, `limit` 1–100. |
 | GET | `/api/cards/{card_id}` | — | `CoreCard` or 404. |
 | GET | `/api/cards/{card_id}/placements` | — | `Placement[]`. |
 | PATCH | `/api/cards/{card_id}` | `{name?, set?, number?, year?, type?, notes?}` (extras forbidden) | Updated `CoreCard`. Manual partial edit — only fields present are touched. Empty/whitespace strings stored as NULL. Sets `metadata_source = 'manual'`, clears `metadata_confidence`. |
@@ -55,7 +58,8 @@ Per-placement actions for fixing mistakes (bad merge, wrong auto-match) or impro
 
 | Method | Path | Body | Returns |
 |---|---|---|---|
-| GET | `/api/placements/{placement_id}` | — | Full context: `polygon` (or null), `page` (source image url + dimensions + layout), `core_card` (currently linked), `candidates[]` (top-3 against current embedding). |
+| GET | `/api/placements` | `?q=&review_status=&limit=&offset=` | `{items: PlacementSummary[], total, limit, offset}` — server-side filtered + paged flat list of non-empty placements, newest first. `q` matches binder/card name, set, number; `review_status` ∈ pending / auto_matched / user_confirmed / new_card; `limit` 1–200 (default 50). |
+| GET | `/api/placements/{placement_id}` | — | Full context: `polygon` (or null), `page` (source image url + dimensions + layout), `core_card` (currently linked), `candidates[]` (top-3 against current embedding), plus the decision audit trail: `created_at`, `resolved_at`, `embedder_name`, `embedder_version`. |
 | POST | `/api/placements/{placement_id}/match` | `{core_card_id}` | Reassigns to a (possibly different) CORE card. Sets `review_status = 'user_confirmed'`. |
 | POST | `/api/placements/{placement_id}/promote-new` | — | Creates a new CORE row from this placement. Sets `review_status = 'new_card'`. |
 | POST | `/api/placements/{placement_id}/unmatch` | — | Clears link, sets `review_status = 'pending'`. Empty slots are rejected. |
@@ -65,7 +69,7 @@ Per-placement actions for fixing mistakes (bad merge, wrong auto-match) or impro
 
 | Method | Path | Body | Returns |
 |---|---|---|---|
-| GET | `/api/review/queue` | — | `ReviewQueueItem[]` (mixed pending + deferred; client filters). |
+| GET | `/api/review/queue` | `?tab=active\|deferred&limit=&offset=` | `{items: ReviewQueueItem[], total_active, total_deferred, limit, offset}` — one page of the chosen tab (oldest first); top-3 candidates recomputed only for the returned page. `limit` 1–50 (default 5). |
 | POST | `/api/review/{placement_id}/match` | `{core_card_id}` | `{placement_id, status: 'user_confirmed'}`. |
 | POST | `/api/review/{placement_id}/new` | — | `{placement_id, core_card_id, status: 'new_card'}`. |
 | POST | `/api/review/{placement_id}/defer` | — | `{placement_id, deferred: true}`. |
@@ -75,13 +79,15 @@ Per-placement actions for fixing mistakes (bad merge, wrong auto-match) or impro
 
 | Method | Path | Body / Query | Returns |
 |---|---|---|---|
-| GET | `/api/dashboard/stats` | — | `{binders, pages, core_cards, pending_review}`. |
-| GET | `/api/dashboard/activity` | `?limit=10` (1–50) | `ActivityItem[]` — merged scans / confirmations / new cards / new binders, sorted desc. |
+| GET | `/api/dashboard/stats` | — | `{binders, pages, core_cards, total_cards, pending_review, needs_metadata}`. |
+| GET | `/api/dashboard/activity` | `?limit=10` (1–50) | `ActivityItem[]` — merged scans / confirmations / new cards / new binders, sorted desc. Items carry entity refs for linking: `binder_id` + `page_number` (scans), `core_card_id` (confirmations, new cards), `binder_id` (binders). |
 
 ## Settings
 
 | Method | Path | Body | Returns |
 |---|---|---|---|
+| GET | `/api/settings/matching` | — | `{match_threshold, match_threshold_default, matcher_id, embedder_name, embedder_version}` — the live auto-accept guardrail. |
+| PUT | `/api/settings/matching` | `{match_threshold}` (0.5–0.999) | Updated settings. Persisted in the `app_setting` table; applies to future scans immediately (already-decided placements are not re-classified). 422 out of range. |
 | GET | `/api/settings/model-slots` | — | `ModelSlot[]` — detection / embeddings / metadata catalogs. Active option pinned by `config.py`. |
 | POST | `/api/settings/model-slots/{slot_id}/active` | `{option_id}` | **501** — runtime swapping not supported in v1. Edit `config.py` and restart instead. |
 

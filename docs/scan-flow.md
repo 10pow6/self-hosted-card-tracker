@@ -4,7 +4,7 @@ The end-to-end pipeline from "I have a binder page photographed on my phone" to 
 
 ## Wizard states (frontend)
 
-`routes/Scan.tsx` is a state machine on top of local state:
+`routes/Scan.tsx` is a thin state machine; the step components live in `frontend/src/features/scan/` and a visible stepper (Pick binder → Capture → Adjust boxes → Saved) tracks progress:
 
 ```
 ┌──────────────┐  pick or create   ┌───────────────┐
@@ -65,7 +65,7 @@ Body: `{scan_id, binder_id, page_number, slots: [{slot_index, disabled, polygon:
 **Phase A — outside the DB transaction** (heavy, slow):
 1. Verify binder exists and `(binder_id, page_number)` isn't already taken.
 2. For each non-empty slot: warp polygon → canonical 480×672 BGR crop → save to `data/crops/<scan_id>/slot_<i>.jpg` → embed (BGR → RGB → DINOv2 → unit float32[384]) → top-3 cosine similarity vs CORE.
-3. Classify each slot: top similarity `>= 0.92` (`match_threshold`) → `auto_matched`, otherwise `pending`. The only exception is **bootstrap**: when the CORE table is empty there's nothing to match against, so the slot becomes `new_card`. Similarity alone never creates new CORE rows — see [embeddings.md](embeddings.md).
+3. Classify each slot: top similarity at or above the auto-accept threshold (`match_threshold`, default 0.92, adjustable in Settings → Automation) → `auto_matched`, otherwise `pending`. The only exception is **bootstrap**: when the CORE table is empty there's nothing to match against, so the slot becomes `new_card`. Similarity alone never creates new CORE rows — see [embeddings.md](embeddings.md).
 
 **Phase B — single DB transaction**:
 4. Insert `page` row.

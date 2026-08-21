@@ -17,6 +17,8 @@ Project-internal reference. For the project pitch, screenshots, and quickstart s
 | PDF exports (collection, binder cards, binder pages) | [export.md](export.md) |
 | Binder layouts (RxC parsing, supported sizes) | [layouts.md](layouts.md) |
 | HTTP API reference | [api.md](api.md) |
+| Design system — colors, type, decision-provenance language | [DESIGN.md](DESIGN.md) |
+| Frontend UI architecture (routes, features, provenance system) | [frontend-ui.md](frontend-ui.md) |
 | Install + first run | [setup.md](setup.md) |
 | Troubleshooting | [troubleshooting.md](troubleshooting.md) |
 
@@ -31,3 +33,4 @@ Project-internal reference. For the project pitch, screenshots, and quickstart s
 - PDF format / endpoint / page layout change → [export.md](export.md).
 - Installation step or environment change → [setup.md](setup.md).
 - Any new failure mode you've actually hit → [troubleshooting.md](troubleshooting.md).
+- UI structure, shared component, or provenance-rule change → [frontend-ui.md](frontend-ui.md); look & feel tokens → [DESIGN.md](DESIGN.md).

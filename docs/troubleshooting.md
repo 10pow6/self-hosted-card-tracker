@@ -44,7 +44,7 @@ Failure modes that have actually been hit. Add new entries here when you find a 
 
 **Cause**: iOS Safari is allowed to evict tabs containing an `<input type="file">` while the camera is open, and it reloads the tab when the user returns. React state is wiped. The scan succeeded server-side but the new page instance has no memory of it.
 
-**Mitigation in code**: [`routes/Scan.tsx`](../frontend/src/routes/Scan.tsx) persists the in-flight scan (preview response, slots, page number, savedPages, committed result) to `sessionStorage` under `card_tracker_scan_state_v1`. After Safari reloads `/scan?binder=<id>`, the binder hydration effect reads sessionStorage and restores you back onto the polygon editor or success card you were on. The persisted state is keyed by `binderId` and cleared on **Switch binder** and **Done**.
+**Mitigation in code**: [`features/scan/persistence.ts`](../frontend/src/features/scan/persistence.ts) (used by `routes/Scan.tsx`) persists the in-flight scan (preview response, slots, page number, savedPages, committed result) to `sessionStorage` under `card_tracker_scan_state_v1`. After Safari reloads `/scan?binder=<id>`, the binder hydration effect reads sessionStorage and restores you back onto the polygon editor or success card you were on. The persisted state is keyed by `binderId` and cleared on **Switch binder** and **Done**.
 
 **If a user still loses progress**: the most likely cause is that they reloaded the `/scan` page without the `?binder=<id>` query param (e.g. via the nav tab). Restoration only triggers when the URL identifies the binder. Land back on the binder via Binders → Binder X → Scan a page.
 
@@ -54,7 +54,7 @@ Failure modes that have actually been hit. Add new entries here when you find a 
 
 **Cause**: the default detection thresholds (`min_cell_fill` 0.30, `min_hull_fill` 0.70) were tuned for 3×3 cell sizes. Smaller cells fail them.
 
-**Fix**: the thresholds are tunable per binder via `binder.detector_config` — the create-binder dialog's **Advanced detection tuning** panel. Lower `min_cell_fill` (e.g. to 0.15) for dense layouts. See [detection.md](detection.md#per-binder-tunable-thresholds-detectionconfig). You can also always drag the boxes manually before commit — the polygon editor doesn't care whether boxes were auto-detected.
+**Fix**: the thresholds are tunable per binder via `binder.detector_config` — in the create-binder dialog's **Advanced detection tuning** panel, or any time later via **Binder settings** on the binder page. Lower `min_cell_fill` (e.g. to 0.15) for dense layouts. See [detection.md](detection.md#per-binder-tunable-thresholds-detectionconfig). You can also always drag the boxes manually before commit — the polygon editor doesn't care whether boxes were auto-detected.
 
 ## "Page X already exists in binder Y"
 
@@ -85,7 +85,7 @@ Crops and scan images under `data/crops` / `data/scans` survive a DB wipe but be
 
 **Cause**: `lucide-react` v1 dropped brand icons. Anything importing `Github`, `Youtube`, `Twitter`, `Linkedin`, `Facebook`, etc. from `lucide-react` will fail.
 
-**Fix**: inline the SVG. The About route shows the pattern — see [`frontend/src/routes/About.tsx`](../frontend/src/routes/About.tsx) for `GithubIcon`, `XIcon`, `DiscordIcon`, `YoutubeIcon`.
+**Fix**: inline the SVG. See [`frontend/src/components/icons.tsx`](../frontend/src/components/icons.tsx) for the pattern (`GithubIcon`, `XIcon`, `DiscordIcon`, `YoutubeIcon`).
 
 ## Embeddings comparison returns nothing
 

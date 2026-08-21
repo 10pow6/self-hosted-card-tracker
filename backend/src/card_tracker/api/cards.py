@@ -34,6 +34,19 @@ def export_pdf() -> FileResponse:
     return FileResponse(out, media_type="application/pdf", filename=out.name)
 
 
+@router.get("/duplicates")
+def find_duplicates(
+    threshold: float = Query(default=0.9, ge=0.5, le=0.999),
+    limit: int = Query(default=20, ge=1, le=100),
+) -> list[dict]:
+    """Likely duplicate catalog entries by embedding similarity:
+    `[{a: CoreCard, b: CoreCard, similarity}]`, highest first. Advisory —
+    the user confirms every merge. Registered before `/{card_id}` so FastAPI
+    matches the literal path first.
+    """
+    return cards_svc.find_duplicate_pairs(threshold=threshold, limit=limit)
+
+
 @router.get("/{card_id}")
 def get_card(card_id: str) -> dict:
     card = cards_svc.get_card(card_id)

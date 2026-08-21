@@ -27,6 +27,8 @@ Where placements with ambiguous matches go for a human yes/no.
 
 URL `?tab=active|deferred&page=N` keeps both tabs page-scoped. Switching tabs resets `page` to 1.
 
+Paging is server-side: the frontend fetches `GET /api/review/queue?tab=&limit=5&offset=` per page, and candidate recomputation (below) runs only for the returned page — the queue stays cheap no matter how large it grows. The response carries `total_active` / `total_deferred` for the tab badges.
+
 ## Top-N candidates
 
 Computed **on the fly per visit** by `services/review.py::list_queue`:
@@ -55,17 +57,19 @@ Each pending placement has three terminal actions plus defer:
 
 ## Keyboard shortcuts
 
-Active on the **first item of the current page** of the current tab:
+Shortcuts act on the **focused item** — one item on the page carries a visible focus ring and scrolls into view; after an action, focus advances to the next item. A hint bar above the list shows the bindings (desktop only).
 
 | Key | Action |
 |---|---|
-| `1` `2` `3` | Pick candidate by rank (1 = top). |
+| `j` / `k` (or `↓` / `↑`) | Move focus down / up. |
+| `1` `2` `3` | Pick candidate by rank (1 = top) on the focused item. |
 | `y` | Confirm match (uses currently-selected candidate; defaults to top-1). |
-| `+` or `=` | Add as new card. |
+| `n` | Add as new card. |
 | `d` | Defer (on Active tab) / un-defer (on Deferred tab). |
+| `p` | Open the pick-from-catalog dialog. |
 
-Shortcuts ignore keystrokes inside `<input>` / `<textarea>`.
+Shortcuts suspend while a dialog is open, while a modifier key is held, and inside `<input>` / `<textarea>` / contentEditable.
 
 ## Pagination behavior
 
-5 items per page. Confirming or new-promoting an item shrinks the queue; if it leaves the current page empty, pagination clamps to the last valid page automatically.
+5 items per page, paged server-side (see above). Confirming or new-promoting an item shrinks the queue; if it leaves the current page empty, the page steps back automatically.

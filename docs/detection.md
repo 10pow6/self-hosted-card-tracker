@@ -62,7 +62,7 @@ Three thresholds are exposed per binder via `binder.detector_config` (see [data-
 | `min_hull_fill` | 0.70 | 0.30 – 0.95 | Min convex-hull tightness. Drop for crumpled or sleeve-occluded cards. |
 | `aspect_tolerance` | 0.20 | 0.05 – 0.50 | ±% deviation from `CARD_ASPECT`. Higher = more permissive on tilt/perspective. |
 
-The frontend's binder-create dialog renders an "Advanced detection tuning" disclosure with these fields. Per-binder values flow through `services/binders.resolve_detector(binder_id)` into the call to `detect_slot_polygons` during scan preview.
+The frontend renders these fields in the create-binder dialog's "Advanced detection tuning" disclosure, and again in **Binder settings** on the binder page (`PATCH /api/binders/{id}`) so tuning can be adjusted after creation — changes apply to future scans. Per-binder values flow through `services/binders.resolve_detector(binder_id)` into the call to `detect_slot_polygons` during scan preview.
 
 ## Adding new detectors
 
@@ -85,6 +85,6 @@ Call from a Python REPL or scratch script when tuning.
 
 ## Known weak spots
 
-- **Dense layouts (4×4 and up).** The default `min_cell_fill` was tuned for 3×3 — small cells often fail it. Lower it per binder via `detector_config` (Advanced detection tuning in the create-binder dialog), or drag manually.
+- **Dense layouts (4×4 and up).** The default `min_cell_fill` was tuned for 3×3 — small cells often fail it. Lower it per binder via `detector_config` (detection tuning in the create-binder dialog or Binder settings), or drag manually.
 - **Toploaders against a busy background.** Stage 1 needs a single clearly-darkest region; transparent toploaders on a dark surface confuse it.
 - **Glossy sleeves under harsh light.** Specular highlights chunk the card mask. The 5×5 open kernel helps but isn't perfect — diffuse lighting always beats algorithm tuning.

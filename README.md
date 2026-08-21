@@ -27,61 +27,50 @@ If you store cards in binders, every "where did I put my Charizard?" devolves in
 
 **Card Tracker is type-agnostic, fully self-hosted, and offline by default.** Point your phone camera at a binder page; the app parses each pocket and tracks every card back to its physical location (binder → page → slot). The only network call in normal use is a one-time download of the local vision model on first run.
 
-![Dashboard — your collection at a glance: binders, pages scanned, unique cards, total cards, pending review.](screenshots/dashboard.png)
+![Dashboard — your collection at a glance: binders, pages scanned, catalog entries, physical cards, pending review, plus a "What runs on autopilot" panel spelling out exactly what the AI decides on its own.](screenshots/dashboard.png)
 
 ## How it works
 
 1. **Capture.** Photograph or upload a binder page in any layout from 1×1 (toploader) up to 4×4 (16 pockets).
 2. **Detect.** OpenCV finds the binder page in the photo, splits it into card-shaped slots, and pre-fills polygon boxes around each card.
 3. **Adjust.** You drag corners to fix any boxes the detector missed, or mark slots as deliberately empty.
-4. **Embed & match.** Each card crop is run through DINOv2-small (a 21M-parameter local vision model) and compared by cosine similarity against your existing card database.
-5. **Resolve.** Strong matches link automatically. Ambiguous ones land in a work queue for a quick yes/no review. Cards with no near-neighbor become brand-new database entries.
+4. **Embed & match.** Each card crop is run through DINOv2-small (a 21M-parameter local vision model) and compared by cosine similarity against your existing catalog.
+5. **Resolve.** Matches above the auto-accept threshold (yours to tune, 92% by default) link automatically and are labeled as the model's work. Ambiguous ones land in the review queue for a quick yes/no. Cards with no near-neighbor become brand-new catalog entries.
 
-Every step runs locally on your machine. No accounts, no cloud, no per-card API quotas.
+Every step runs locally on your machine. No accounts, no cloud, no per-card API quotas. And every decision wears its provenance: **AI-decided**, **awaiting your review**, or **confirmed by you** — nothing the model did masquerades as fact.
 
 ### Scan into a binder
 
-Pick the binder you're scanning into, or spin up a new one — name it, choose a layout, optionally tweak detection parameters, and start firing pages at it.
+A four-step wizard — pick binder → capture → adjust boxes → saved. Pick the binder you're scanning into, or spin up a new one (name, layout from 1×1 to 4×4, optional detection tuning) and start firing pages at it. The adjust step pre-fills a polygon around each card; you drag corners to fix any the detector missed and mark deliberately-empty pockets. Committing shows each slot's outcome with its confidence, and pending matches link straight into review.
 
-![Scan-into-a-binder picker — a tile per binder, plus a "New binder" tile.](screenshots/scan-to-new-binder.png)
-
-![Create-binder dialog — name, layout grid (1×1 through 4×4), and an advanced detection-tuning panel.](screenshots/create-binder.png)
-
-### Adjust the detector's boxes
-
-OpenCV pre-fills a polygon around each card; you drag corners to fix any it missed and mark deliberately-empty pockets. The right-rail shows the current match plus the top-3 candidates from your database — confirm, move, promote, or send to the review queue without leaving the page.
-
-![Edge-refinement view — source page on the left with draggable card polygons, current match + top-3 candidates on the right.](screenshots/edge-refinement.png)
+![Scan wizard — binder picker with a per-binder tile ("next page" pre-computed), a New-binder tile, and the four-step progress indicator.](screenshots/scan.png)
 
 ### Resolve ambiguous matches
 
-Anything the embedder isn't confident about lands in the **Work queue**: each pending placement side-by-side with its top candidates. Keyboard shortcuts (`1/2/3` pick, `y` confirm, `+` new card, `d` defer) make it fast.
+Anything the model isn't confident about lands in the **Review queue**: each pending crop side-by-side with its top candidates, every candidate wearing a worded confidence chip (`92% · strong`). Keyboard-first: `j/k` move, `1–3` pick, `y` confirm, `n` new card, `d` defer, `p` pick from catalog. Each item links back to its binder page, and to a crop-fixing view when a bad crop is the real problem.
 
-![Work queue — placement on the left, top candidates from the database on the right, with confirm / pick-from-DB / new-card / defer actions.](screenshots/similarity-matching-on-scan.png)
-
-![Empty work queue — nothing pending right now.](screenshots/card-scan-work-queue.png)
+![Review queue — keyboard shortcut bar, Active/Deferred tabs, and a clear-queue state that points you back to scanning.](screenshots/review-queue.png)
 
 ### Browse your collection
 
-Three lenses on the same data:
+Two lenses on the same data:
 
-- **Card database** — every distinct CORE row, filterable by type and metadata state. Export the whole thing to a printable, Discord-shareable PDF in one click.
-- **Collection** — every physical card across every binder, duplicates included; click through to inspect or refine the placement.
-- **Binders** — drill into a binder, see each page as a populated grid, export a per-page PDF for sharing.
+- **Catalog** — every distinct card you've cataloged, type-agnostic. Server-side filter and search, one-click PDF export, and a merge tool that *suggests* likely duplicate entries by visual similarity — you confirm every fold. A **Physical cards** table lists every placement (duplicates included) with status and confidence.
+- **Binders** — your physical collection. Drill into a binder, see each page as a populated grid, flip page-to-page, view the original photo, rename or re-tune detection per binder, export per-page PDFs.
 
-![Card database — distinct CORE rows with filter pills and an "Export PDF" button.](screenshots/card-database.png)
+![Catalog — every distinct card with type filter, sort, needs-info toggle, search, and Export PDF / Merge duplicates actions.](screenshots/all-cards-collection.png)
 
-![Your collection — every physical placement listed, with refine / page / card actions.](screenshots/all-cards-collection.png)
+![Binders — each binder as a cover grid of its actual cards, with layout and page/card counts.](screenshots/binder-collection.png)
 
-![Binder detail — pages laid out with their populated card grids.](screenshots/binder-collection.png)
+![Merge duplicates — the model surfaces likely-duplicate pairs with confidence and a pre-picked keeper; below, manual keeper/duplicates pickers for anything it missed. Irreversible, so everything confirms first.](screenshots/merge-function.png)
 
 ### Enrich metadata locally with Claude Code
 
 Each card has editable metadata (name, set, year, type, notes). For unenriched cards you can run the bundled **Claude Code skill** locally: it pulls a batch via the API, identifies each card from its representative crop, optionally web-searches an allowlisted source you control, and posts back suggestions. Card numbers are only accepted at ≥95% confidence, and manual edits override and clear the AI flag. Nothing leaves your machine without your domain allowlist permitting it.
 
-![Card metadata view — editable name/set/year/type/notes plus an "Enrich via agent" affordance.](screenshots/card-metadata.png)
+![Card detail — metadata with an "AI-enriched 85%" provenance badge, and each physical placement listed with its decision status ("Confirmed by you") and a Fix-crop action.](screenshots/card-metadata.png)
 
-![Settings → model slots — page detection, embedding, matching, metadata enrichment, plus stub slots for future MCP integrations.](screenshots/ready-to-be-extended.png)
+![Settings — Automation & guardrails with the editable auto-accept threshold, plus swappable model slots for detection and embeddings.](screenshots/settings.png)
 
 ## Features
 
@@ -89,7 +78,8 @@ Each card has editable metadata (name, set, year, type, notes). For unenriched c
 - 🔍 **Visual similarity search** — DINOv2-small embeddings, brute-force cosine sim. Comfortable into the tens of thousands of cards.
 - 📐 **Configurable layouts** — 1×1, 2×2, 3×3 (default), 3×4, 4×3, 4×4. Per-binder.
 - 📱 **Mobile-first capture** — phone goes straight to the camera (Android) or "Take Photo" sheet (iOS).
-- ✅ **Human-in-the-loop review queue** — keyboard shortcuts, defer/un-defer for ambiguous matches.
+- ✅ **Human-in-the-loop review queue** — keyboard-first, server-paged, defer/un-defer for ambiguous matches.
+- 🛡️ **AI you can audit** — every decision is labeled (auto-matched / confirmed by you / needs review), confidence is worded (`92% · strong`), and the auto-accept threshold is yours to tune in Settings.
 - 🛠️ **Placement repair tools** — refine polygons, move cards between identities, promote to new, send back to review.
 - ✏️ **Editable metadata** — manual edit-in-place, plus an opt-in Claude Code skill that proposes metadata for unenriched cards using your own allowlisted web sources.
 - 📄 **PDF export** — one-click export of your full database, a single binder's cards, or a binder's per-page grid layout. Discord-shareable.
@@ -194,7 +184,7 @@ Vite prints multiple LAN URLs when you run `yarn dev`. Open `http://<your-machin
 
 - **`ETIMEDOUT 127.0.0.1:8000` from the Vite proxy on Windows.** Machines with WSL / Hyper-V / VirtualBox network adapters sometimes can't talk to the literal IPv4 loopback through Node. The bundled `vite.config.ts` already proxies via `localhost`. If it still trips, run uvicorn with `--host 0.0.0.0` so it listens on all interfaces.
 - **First scan is slow.** That's the one-time DINOv2 weight download. Once cached under `data/models/` you'll see embeddings complete in ~50 ms per card on CPU.
-- **Detection misses cards on dense layouts (4×4).** The default detection thresholds were tuned for 3×3 cell sizes. Lower `min_cell_fill` in the binder's **Advanced detection tuning** panel (create-binder dialog), or just drag the boxes manually before commit — see [docs/detection.md](docs/detection.md).
+- **Detection misses cards on dense layouts (4×4).** The default detection thresholds were tuned for 3×3 cell sizes. Lower `min_cell_fill` in the binder's detection tuning panel (in the create-binder dialog, or later via **Binder settings** on the binder page), or just drag the boxes manually before commit — see [docs/detection.md](docs/detection.md).
 
 ## Project layout
 
@@ -212,10 +202,11 @@ self-hosted-card-tracker/
 ├── frontend/                   Vite + React 19 + TS + Tailwind + shadcn
 │   ├── public/icon.png         App icon (this one)
 │   └── src/
-│       ├── routes/             Dashboard, Scan, Binders, Cards, Review, Settings
-│       ├── components/         Domain + UI components
+│       ├── routes/             Thin route components (Home, Scan, Binders, Catalog, Review, …)
+│       ├── features/           Feature modules (scan, review, binders, catalog, refine, settings)
+│       ├── components/         Shared components incl. ui/ primitives + decisions/ (AI provenance)
 │       ├── api/                Typed API clients
-│       └── lib/layout.ts       Frontend layout helpers
+│       └── lib/                Helpers incl. decisions.ts (status/confidence vocabulary)
 ├── data/                       Created on first run (SQLite + crops + scans + models + exports)
 ├── docs/                       Per-topic reference (architecture, data model, API, …)
 └── sample_images/              Test images for the scan flow
@@ -227,6 +218,8 @@ self-hosted-card-tracker/
 - [docs/architecture.md](docs/architecture.md) — system layers, storage conventions, constraints.
 - [docs/data-model.md](docs/data-model.md) — schema and identity rules.
 - [docs/api.md](docs/api.md) — every HTTP endpoint.
+- [docs/DESIGN.md](docs/DESIGN.md) — the design system (dark-first, decision-provenance color language).
+- [docs/frontend-ui.md](docs/frontend-ui.md) — frontend architecture and UI conventions.
 - [docs/enrichment.md](docs/enrichment.md) — Claude Code metadata-enrichment skill.
 - [docs/export.md](docs/export.md) — PDF export formats.
 - [docs/setup.md](docs/setup.md) — setup with extra environment notes.

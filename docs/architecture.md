@@ -7,7 +7,8 @@ High-level layers and where things live. For details on each topic, follow the c
 ```
 ┌────────────────────────────────────────────────────────────────────┐
 │  Frontend (Vite + React 19 + TS + Tailwind v4 + shadcn/ui)         │
-│   ├── routes/        screens (Dashboard, Scan, Binders, Cards, …) │
+│   ├── routes/        thin screens (Home, Scan, Binders, Catalog…)  │
+│   ├── features/      feature modules (scan, review, catalog, …)    │
 │   ├── components/    PolygonEditor, CardThumb, Pagination, …       │
 │   └── api/           typed clients → /api/* fetches                │
 └──────────────────────────────────┬─────────────────────────────────┘

@@ -38,6 +38,27 @@ export async function createBinder(
   });
 }
 
+export async function updateBinder(
+  id: string,
+  patch: { name?: string; detector?: string; detector_config?: DetectorConfig | null },
+): Promise<Binder> {
+  return fetchJson<Binder>(`/api/binders/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function deleteBinder(id: string): Promise<void> {
+  const res = await fetch(`/api/binders/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(`deleteBinder → ${res.status}: ${await res.text()}`);
+}
+
+// Every page of a binder with its full placement grid — one request.
+export async function listPages(binderId: string): Promise<Page[]> {
+  return fetchJson<Page[]>(`/api/binders/${encodeURIComponent(binderId)}/pages`);
+}
+
 export async function getPage(binderId: string, pageNumber: number): Promise<Page | null> {
   const res = await fetch(
     `/api/binders/${encodeURIComponent(binderId)}/pages/${pageNumber}`,

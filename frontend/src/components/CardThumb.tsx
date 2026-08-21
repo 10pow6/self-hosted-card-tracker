@@ -31,10 +31,12 @@ export function CardThumb({ card, to, size = 'md', className }: Props) {
         draggable={false}
       />
       {card.needs_metadata && (
-        <span className="absolute top-1.5 right-1.5 rounded bg-[var(--card-needs-review)]/90 px-1.5 py-0.5 text-[10px] font-semibold text-black">
+        <span className="absolute top-1.5 right-1.5 rounded-full bg-warning/90 px-1.5 py-0.5 text-[10px] font-semibold text-background">
           needs info
         </span>
       )}
+      {/* Caption sits on the card art (a photo), so the scrim is intentionally
+          photo-relative black regardless of theme. */}
       <div className={cn('absolute inset-x-0 bottom-0 px-2.5 py-1.5 bg-gradient-to-t from-black/85 to-transparent text-white', sizeClasses[size])}>
         <div className="font-medium truncate">{card.name ?? 'Unknown card'}</div>
         <div className="opacity-80 truncate text-[10px]">

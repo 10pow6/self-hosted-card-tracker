@@ -103,7 +103,7 @@ rank_score = max_sim + α · min(max(n_support − 1, 0), M)
 
 Subtracting 1 means a singleton card never gets a bonus — the bonus is purely for *additional* corroborating photos. The cap stops popular cards from running away with the score.
 
-**Auto-match safety is intentionally unchanged.** `classify()` still reads the raw max cosine and compares against `match_threshold` (0.92). The `+0.05` ceiling on the bonus is below `match_threshold − any plausibly-confused similarity`, so the bonus cannot promote a `pending` placement into `auto_matched` on its own — it only reorders the candidate list inside the review queue.
+**Auto-match safety is intentionally unchanged.** `classify()` still reads the raw max cosine and compares against `match_threshold` (default 0.92). The `+0.05` ceiling on the bonus is below `match_threshold − any plausibly-confused similarity`, so the bonus cannot promote a `pending` placement into `auto_matched` on its own — it only reorders the candidate list inside the review queue.
 
 Each `Candidate` carries:
 
@@ -131,8 +131,8 @@ Acceptable into the tens of thousands of placements on CPU (one matrix multiply 
 
 | Threshold | Default | Outcome |
 |---|---|---|
-| `match_threshold` | 0.92 | `>=` → `auto_matched`; placement links to top candidate immediately. |
-| (else) | < 0.92 | `pending`; lands in the work queue. The user resolves it. |
+| `match_threshold` | 0.92 (default) | `>=` → `auto_matched`; placement links to top candidate immediately. Runtime-adjustable in Settings → Automation (persisted in the `app_setting` table via `services.app_settings`; `config.py` holds only the default). |
+| (else) | < threshold | `pending`; lands in the review queue. The user resolves it. |
 
 **No automatic new-card creation from similarity alone.** The only ways a new `core_card` row gets created are:
 
@@ -141,7 +141,7 @@ Acceptable into the tens of thousands of placements on CPU (one matrix multiply 
 
 This is deliberate: at typical photo-to-photo similarities for trading cards (often 0.70–0.90 even for the same physical card under different lighting), letting any below-threshold sim auto-spawn a CORE row produced silent dupes. The fix is to always involve the human when confidence is uncertain.
 
-`classify(top_similarity) → 'auto_matched' | 'pending'` lives in `match.py`. The `review_threshold` field still exists in `config.py` but is unused — kept for forward compatibility.
+`classify(top_similarity) → 'auto_matched' | 'pending'` lives in `match.py` and reads the live threshold from `services.app_settings` (the unused `review_threshold` config field has been removed).
 
 ### Calibration notes
 
@@ -152,7 +152,7 @@ DINOv2-small similarity for trading-card crops, observed in practice:
 - **0.70–0.88** — could be the same card under bad lighting/angle, OR a closely related card (same Pokémon different art, same player different year). **This range is exactly why we never auto-create new CORE rows from similarity alone** — these need human judgment.
 - **< 0.70** — likely a different card, but still routes to review so the human can confirm.
 
-If too many false-positive auto-matches sneak through, raise `match_threshold` (e.g. 0.95). If you want everything human-reviewed, set `match_threshold = 1.01` so nothing ever auto-matches.
+If too many false-positive auto-matches sneak through, raise the auto-accept threshold in Settings → Automation (e.g. 95%). If you want everything human-reviewed, set it to the maximum (99%) so effectively nothing auto-matches.
 
 ## Future swaps
 

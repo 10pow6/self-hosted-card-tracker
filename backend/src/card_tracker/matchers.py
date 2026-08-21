@@ -24,6 +24,14 @@ import numpy as np
 from card_tracker.config import settings
 
 
+def _match_threshold() -> float:
+    """Auto-accept threshold — user-adjustable at runtime (Settings → Automation).
+    Lazy import keeps this module importable without a DB on disk."""
+    from card_tracker.services import app_settings
+
+    return app_settings.match_threshold()
+
+
 @dataclass
 class Candidate:
     """One CORE-card candidate for a query embedding.
@@ -143,7 +151,7 @@ class CosineMaxMatcher:
     def classify(
         self, top_similarity: float, candidates: Optional[list[Candidate]] = None
     ) -> str:
-        if top_similarity >= settings.match_threshold:
+        if top_similarity >= _match_threshold():
             return "auto_matched"
         return "pending"
 
@@ -229,7 +237,7 @@ class CosineMultiVoteMatcher:
         self, top_similarity: float, candidates: Optional[list[Candidate]] = None
     ) -> str:
         # Auto-match decision uses raw max cosine — boost only affects ranking.
-        if top_similarity >= settings.match_threshold:
+        if top_similarity >= _match_threshold():
             return "auto_matched"
         return "pending"
 

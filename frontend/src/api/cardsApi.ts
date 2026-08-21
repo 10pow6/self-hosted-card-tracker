@@ -17,6 +17,20 @@ export async function listCards(filter: CardFilter = {}): Promise<CoreCard[]> {
   return (await res.json()) as CoreCard[];
 }
 
+export type DuplicatePair = { a: CoreCard; b: CoreCard; similarity: number };
+
+// Likely duplicate identities by embedding similarity — advisory, highest first.
+export async function findDuplicatePairs(
+  opts: { threshold?: number; limit?: number } = {},
+): Promise<DuplicatePair[]> {
+  const params = new URLSearchParams();
+  if (opts.threshold !== undefined) params.set('threshold', String(opts.threshold));
+  if (opts.limit !== undefined) params.set('limit', String(opts.limit));
+  const res = await fetch(`/api/cards/duplicates${params.size ? `?${params}` : ''}`);
+  if (!res.ok) throw new Error(`findDuplicatePairs → ${res.status}: ${await res.text()}`);
+  return (await res.json()) as DuplicatePair[];
+}
+
 export async function getCard(id: string): Promise<CoreCard | null> {
   const res = await fetch(`/api/cards/${encodeURIComponent(id)}`);
   if (res.status === 404) return null;

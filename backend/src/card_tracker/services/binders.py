@@ -86,6 +86,61 @@ def resolve_detector(binder_id: str) -> tuple[str, dict[str, float]]:
     return detector_id, detectors.merged_config(detector_id, binder.get("detector_config"))
 
 
+def update_binder(
+    binder_id: str,
+    *,
+    name: Optional[str] = None,
+    detector: Optional[str] = None,
+    detector_config: Optional[dict] = None,
+) -> Optional[dict]:
+    """Rename and/or re-tune detection for an existing binder. Layout is
+    immutable — pages were committed against it. Passing `detector` (with or
+    without `detector_config`) replaces the detection setup; it applies to
+    future scans only.
+
+    Returns the updated binder dict, or None if the binder doesn't exist.
+    """
+    updates: list[str] = []
+    params: list[object] = []
+    if name is not None:
+        cleaned = name.strip()
+        if not cleaned:
+            raise ValueError("Binder name cannot be empty.")
+        updates.append("name = ?")
+        params.append(cleaned)
+    if detector is not None:
+        if detector not in detectors.REGISTRY:
+            raise ValueError(f"Unknown detector: {detector}")
+        cleaned_config = detectors.validate_config(detector, detector_config)
+        updates.append("detector = ?")
+        params.append(detector)
+        updates.append("detector_config = ?")
+        params.append(json.dumps(cleaned_config) if cleaned_config else None)
+    with transaction() as conn:
+        if updates:
+            params.append(binder_id)
+            cur = conn.execute(
+                f"UPDATE binder SET {', '.join(updates)} WHERE id = ?", params
+            )
+            if cur.rowcount == 0:
+                return None
+        row = conn.execute("SELECT * FROM binder WHERE id = ?", (binder_id,)).fetchone()
+        return _binder_dict(conn, row) if row else None
+
+
+def delete_binder(binder_id: str) -> bool:
+    """Delete a binder; its pages and placements cascade. Catalog entries are
+    NOT deleted — cards whose only placements lived here simply drop to zero
+    placements (and can be deleted from the catalog). Crop files on disk are
+    left in place; catalog rows may still reference them as representatives.
+
+    Returns False if the binder doesn't exist.
+    """
+    with transaction() as conn:
+        cur = conn.execute("DELETE FROM binder WHERE id = ?", (binder_id,))
+        return cur.rowcount > 0
+
+
 def create_binder(
     name: str,
     layout: Optional[str] = None,

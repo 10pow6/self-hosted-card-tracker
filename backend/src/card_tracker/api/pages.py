@@ -8,9 +8,10 @@ router = APIRouter(prefix="/binders/{binder_id}/pages", tags=["pages"])
 
 @router.get("")
 def list_pages(binder_id: str) -> list[dict]:
+    """Every page with its full placement grid — one call for the binder view."""
     if binders_svc.get_binder(binder_id) is None:
         raise HTTPException(status_code=404, detail=f"Binder not found: {binder_id}")
-    return pages_svc.list_pages_for_binder(binder_id)
+    return pages_svc.list_pages_full(binder_id)
 
 
 @router.get("/{page_number}")

@@ -1,9 +1,24 @@
-import type { Placement, PlacementDetail, PlacementSummary, Point } from './types';
+import type { Placement, PlacementDetail, PlacementListResponse, Point, ReviewStatus } from './types';
 
-export async function listPlacements(): Promise<PlacementSummary[]> {
-  const res = await fetch('/api/placements');
+export type PlacementListParams = {
+  q?: string;
+  reviewStatus?: Exclude<ReviewStatus, 'empty'>;
+  limit?: number;
+  offset?: number;
+};
+
+export async function listPlacements(
+  params: PlacementListParams = {},
+): Promise<PlacementListResponse> {
+  const search = new URLSearchParams();
+  if (params.q) search.set('q', params.q);
+  if (params.reviewStatus) search.set('review_status', params.reviewStatus);
+  if (params.limit !== undefined) search.set('limit', String(params.limit));
+  if (params.offset !== undefined) search.set('offset', String(params.offset));
+  const url = `/api/placements${search.size ? `?${search}` : ''}`;
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`listPlacements → ${res.status}: ${await res.text()}`);
-  return (await res.json()) as PlacementSummary[];
+  return (await res.json()) as PlacementListResponse;
 }
 
 type RawPlacementDetail = Omit<PlacementDetail, 'polygon'> & {

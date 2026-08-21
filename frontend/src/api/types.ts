@@ -55,7 +55,7 @@ export type CommitResponse = {
   summary: CommitSummary;
 };
 
-// ---- Domain types (mock-backed for now) ----
+// ---- Domain types ----
 
 export type CardType = 'pokemon' | 'sports' | 'other';
 
@@ -116,6 +116,11 @@ export type Placement = {
   slot_index: number;
   crop_url: string | null;
   core_card_id: string | null;
+  // Linked-card identity, present on page payloads (null when unmatched).
+  // Optional because the review queue's placement rows don't carry them.
+  core_card_name?: string | null;
+  core_card_set?: string | null;
+  core_card_number?: string | null;
   review_status: ReviewStatus;
 };
 
@@ -160,12 +165,32 @@ export type PlacementDetail = Placement & {
   page: PlacementPageContext;
   core_card: CoreCard | null;
   candidates: Candidate[];
+  // Decision audit trail (see DESIGN.md · accountability).
+  created_at: string;
+  resolved_at: string | null;
+  embedder_name: string | null;
+  embedder_version: string | null;
 };
 
 export type ReviewQueueItem = {
   placement: Placement;
   candidates: Candidate[];
   deferred_at: string | null; // ISO timestamp; null = active
+};
+
+export type ReviewQueueResponse = {
+  items: ReviewQueueItem[];
+  total_active: number;
+  total_deferred: number;
+  limit: number;
+  offset: number;
+};
+
+export type PlacementListResponse = {
+  items: PlacementSummary[];
+  total: number;
+  limit: number;
+  offset: number;
 };
 
 // ---- Settings / model slots ----
@@ -214,6 +239,7 @@ export type DashboardStats = {
   core_cards: number;
   total_cards: number;
   pending_review: number;
+  needs_metadata: number;
 };
 
 export type ActivityItem = {
@@ -222,4 +248,18 @@ export type ActivityItem = {
   title: string;
   detail: string;
   when: string; // ISO
+  // Entity refs so the feed can link to what it describes (kind-dependent).
+  binder_id?: string;
+  page_number?: number;
+  core_card_id?: string | null;
+};
+
+// ---- Matching guardrail (Settings → Automation) ----
+
+export type MatchingSettings = {
+  match_threshold: number;
+  match_threshold_default: number;
+  matcher_id: string;
+  embedder_name: string;
+  embedder_version: string;
 };

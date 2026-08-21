@@ -37,7 +37,7 @@ function SlotThumb({
 }) {
   if (slot.disabled) {
     return (
-      <div className="relative aspect-[63/88] rounded-md border-2 border-dashed border-border bg-muted/40 flex flex-col items-center justify-center text-muted-foreground text-sm gap-1">
+      <div className="relative aspect-card rounded-md border-2 border-dashed border-border bg-muted/40 flex flex-col items-center justify-center text-muted-foreground text-sm gap-1">
         <span>{slot.slot_index + 1}</span>
         <span className="text-xs">empty</span>
       </div>
@@ -57,8 +57,9 @@ function SlotThumb({
   return (
     <div
       className={cn(
-        'relative aspect-[63/88] rounded-md border-2 overflow-hidden bg-card',
-        slot.refined ? 'border-[var(--card-refined)]' : 'border-[var(--card-needs-review)]',
+        'relative aspect-card rounded-md border-2 overflow-hidden bg-card',
+        // Provenance palette: blue = refined geometry, amber = unconfirmed proposal.
+        slot.refined ? 'border-info/70' : 'border-warning/70',
       )}
     >
       <svg

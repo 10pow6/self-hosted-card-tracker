@@ -5,13 +5,13 @@ import { Scan } from '@/routes/Scan';
 import { Collection } from '@/routes/Collection';
 import { BinderDetail } from '@/routes/BinderDetail';
 import { PageDetail } from '@/routes/PageDetail';
-import { Cards } from '@/routes/Cards';
-import { CardDetail } from '@/routes/CardDetail';
-import { MergeCards } from '@/routes/MergeCards';
+import { Catalog } from '@/features/catalog/Catalog';
+import { CardDetail } from '@/features/catalog/CardDetail';
+import { MergeCards } from '@/features/catalog/MergeCards';
+import { PlacementRefine } from '@/features/refine/PlacementRefine';
 import { Review } from '@/routes/Review';
 import { Settings } from '@/routes/Settings';
 import { About } from '@/routes/About';
-import { PlacementRefine } from '@/routes/PlacementRefine';
 
 function App() {
   return (
@@ -23,7 +23,7 @@ function App() {
           <Route path="binders" element={<Collection />} />
           <Route path="binders/:id" element={<BinderDetail />} />
           <Route path="binders/:id/pages/:n" element={<PageDetail />} />
-          <Route path="cards" element={<Cards />} />
+          <Route path="cards" element={<Catalog />} />
           <Route path="cards/merge" element={<MergeCards />} />
           <Route path="cards/:id" element={<CardDetail />} />
           <Route path="placements/:id/refine" element={<PlacementRefine />} />

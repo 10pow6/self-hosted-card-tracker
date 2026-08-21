@@ -97,3 +97,36 @@ def get_binder(binder_id: str) -> dict:
     if binder is None:
         raise HTTPException(status_code=404, detail=f"Binder not found: {binder_id}")
     return binder
+
+
+class BinderUpdate(BaseModel):
+    """Layout is deliberately absent — it's immutable once pages exist."""
+
+    name: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    detector: Optional[str] = None
+    detector_config: Optional[dict[str, Any]] = None
+
+
+@router.patch("/{binder_id}")
+def update_binder(binder_id: str, payload: BinderUpdate) -> dict:
+    """Rename and/or re-tune detection. Detector changes apply to future scans."""
+    try:
+        binder = binders_svc.update_binder(
+            binder_id,
+            name=payload.name,
+            detector=payload.detector,
+            detector_config=payload.detector_config,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    if binder is None:
+        raise HTTPException(status_code=404, detail=f"Binder not found: {binder_id}")
+    return binder
+
+
+@router.delete("/{binder_id}", status_code=204)
+def delete_binder(binder_id: str) -> None:
+    """Delete a binder and (via cascade) its pages and placements. Catalog
+    entries survive; ones left with zero placements can be deleted there."""
+    if not binders_svc.delete_binder(binder_id):
+        raise HTTPException(status_code=404, detail=f"Binder not found: {binder_id}")

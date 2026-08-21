@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from card_tracker.services import review as review_svc
@@ -11,8 +11,14 @@ class ResolveMatch(BaseModel):
 
 
 @router.get("/queue")
-def get_queue() -> list[dict]:
-    return review_svc.list_queue()
+def get_queue(
+    tab: str = Query(default="active", pattern="^(active|deferred)$"),
+    limit: int = Query(default=5, ge=1, le=50),
+    offset: int = Query(default=0, ge=0),
+) -> dict:
+    """One page of the queue plus totals for both tabs:
+    {items, total_active, total_deferred, limit, offset}."""
+    return review_svc.list_queue(tab=tab, limit=limit, offset=offset)
 
 
 @router.post("/{placement_id}/match")

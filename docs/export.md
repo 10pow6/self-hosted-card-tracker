@@ -72,7 +72,7 @@ The renderer composes one `PIL.Image` per page and saves them as `pages[0].save(
 
 ## Where the UI exposes them
 
-- **Card database (`/cards`)** → **Export PDF** button → whole collection.
+- **Catalog (`/cards`)** → **Export PDF** button → whole collection.
 - **Binder detail (`/binders/:id`)** → menu / button → both `export-cards` and `export-pages`.
 
 Both render synchronously — for a few hundred cards the round-trip is sub-second; tens of thousands of cards is on the order of seconds and runs in the request thread.

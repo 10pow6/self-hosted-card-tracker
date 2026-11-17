@@ -35,19 +35,21 @@ __pycache__/
 *$py.class
 *.so
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
+# Packaging dirs are scoped to backend/ so generic names (lib/, var/, ...)
+# don't hide frontend source like frontend/src/lib/.
+/backend/build/
+/backend/develop-eggs/
+/backend/dist/
+/backend/downloads/
+/backend/eggs/
+/backend/.eggs/
+/backend/lib/
+/backend/lib64/
+/backend/parts/
+/backend/sdist/
+/backend/var/
+/backend/wheels/
+/backend/share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
@@ -55,9 +57,9 @@ MANIFEST
 
 # Virtual environments
 .venv/
-venv/
-env/
-ENV/
+/backend/venv/
+/backend/env/
+/backend/ENV/
 .env/
 
 # Testing / coverage

@@ -12,6 +12,12 @@ The top-level [README.md](../README.md) has the same instructions in marketing-f
   npm install --global yarn
   ```
 
+- **[uv](https://docs.astral.sh/uv/getting-started/installation/)** — Python package manager for the backend:
+
+  ```bash
+  pip install uv
+  ```
+
 - **Git**.
 - *(Optional)* **Claude Code CLI** — only needed for the [metadata-enrichment skill](enrichment.md):
 
@@ -22,46 +28,31 @@ The top-level [README.md](../README.md) has the same instructions in marketing-f
 
 ## Backend
 
-### Linux / macOS
-
 ```bash
 cd backend
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-python scripts/init_db.py
+uv sync --extra dev
+uv run python scripts/init_db.py
 ```
 
-### Windows (Command Prompt)
+`uv sync` creates `backend/.venv` and installs the exact versions pinned in `backend/uv.lock`. The same commands work in bash, Command Prompt and PowerShell.
 
-```cmd
-cd backend
-python -m venv .venv
-.venv\Scripts\activate.bat
-pip install -e ".[dev]"
-python scripts\init_db.py
-```
+To use the venv directly instead of `uv run`, activate it as usual (`source .venv/bin/activate`, `.venv\Scripts\activate.bat`, or `.venv\Scripts\Activate.ps1`).
 
-### Windows (PowerShell)
+### Dependencies
 
-```powershell
-cd backend
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install -e ".[dev]"
-python scripts/init_db.py
-```
+Python dependencies are declared in `backend/pyproject.toml` and pinned in `backend/uv.lock`. Commit both. Dependabot scans `uv.lock` for security alerts.
 
-If PowerShell blocks the activation script:
-
-```powershell
-Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```bash
+uv add <package>                     # add a runtime dependency
+uv lock --upgrade-package <package>  # bump one package (e.g. for a Dependabot alert)
+uv lock --upgrade                    # bump everything within pyproject ranges
+uv sync --extra dev                  # apply the lockfile to .venv
 ```
 
 ### Run the API
 
 ```bash
-uvicorn card_tracker.main:app --reload --port 8000
+uv run uvicorn card_tracker.main:app --reload --port 8000
 ```
 
 Health check: `curl http://127.0.0.1:8000/health` → `{"status":"ok"}`.
@@ -84,14 +75,14 @@ The app has no migration framework. After any change to [`backend/src/card_track
 # Windows
 del data\card_tracker.db
 cd backend
-python scripts/init_db.py
+uv run python scripts/init_db.py
 ```
 
 ```bash
 # Linux/macOS
 rm data/card_tracker.db
 cd backend
-python scripts/init_db.py
+uv run python scripts/init_db.py
 ```
 
 Crops and scan images under `data/crops` and `data/scans` are not deleted by `init_db`; they're orphaned references after a wipe. Delete them too if you want a clean reset:

@@ -102,6 +102,7 @@ Each card has editable metadata (name, set, year, type, notes). For unenriched c
 - **Python 3.11+** (3.13 tested).
 - **Node 22.22+** (22.x LTS — react-router 8 requires ≥ 22.22.0 at install time).
 - **Yarn classic** (v1) — once Node is installed: `npm install --global yarn`.
+- **[uv](https://docs.astral.sh/uv/getting-started/installation/)** — Python package manager for the backend: `pip install uv`, or the standalone installer from the link.
 - **Git**.
 - *(Optional)* **Claude Code CLI** — only needed for the [metadata-enrichment skill](docs/enrichment.md): `npm install --global @anthropic-ai/claude-code`, then run `claude` once to sign in.
 
@@ -114,37 +115,13 @@ cd self-hosted-card-tracker
 
 ### Backend
 
-#### Linux / macOS
-
 ```bash
 cd backend
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-python scripts/init_db.py
+uv sync --extra dev
+uv run python scripts/init_db.py
 ```
 
-#### Windows (Command Prompt)
-
-```cmd
-cd backend
-python -m venv .venv
-.venv\Scripts\activate.bat
-pip install -e ".[dev]"
-python scripts\init_db.py
-```
-
-#### Windows (PowerShell)
-
-```powershell
-cd backend
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install -e ".[dev]"
-python scripts/init_db.py
-```
-
-> If PowerShell blocks the activation script, run `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned` once.
+`uv sync` creates `backend/.venv` and installs the exact versions pinned in `backend/uv.lock`. The same commands work in bash, Command Prompt and PowerShell.
 
 ### Frontend
 
@@ -157,11 +134,11 @@ yarn install
 
 ### Run it
 
-Two terminals (backend with venv active):
+Two terminals:
 
-**Backend**
+**Backend** (from `backend/`)
 ```bash
-uvicorn card_tracker.main:app --reload --port 8000
+uv run uvicorn card_tracker.main:app --reload --port 8000
 ```
 
 **Frontend**
